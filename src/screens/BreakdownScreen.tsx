@@ -1,14 +1,12 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
-import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { TypingIndicator } from '../components/TypingIndicator';
-import { Clock, ArrowRight, Minus, Plus, MoreHorizontal, ChevronLeft, Pencil, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { TreeBreakdown } from '../components/TreeBreakdown';
+import { ArrowRight, ChevronLeft, Sparkles } from 'lucide-react';
 
 export function BreakdownScreen() {
-  const { currentSession, startStep, setScreen, isBreakingDown, breakdownText, updateStepTime, updateStepTitle, breakdownGoal, goalInput } = useAppStore();
-  const [editingStep, setEditingStep] = useState<string | null>(null);
+  const { currentSession, startStep, setScreen, isBreakingDown, breakdownText, breakdownGoal, goalInput } = useAppStore();
 
   if (!currentSession && !isBreakingDown) {
     return (
@@ -90,98 +88,17 @@ export function BreakdownScreen() {
               Let's make this smaller.
             </motion.p>
 
-            <div className="space-y-3 mb-8">
-              <AnimatePresence>
-                {currentSession.steps.map((step, i) => {
-                  const isCompleted = step.status === 'completed';
-                  const isStuck = step.status === 'stuck';
-                  const isSkipped = step.status === 'skipped';
-                  const isEditing = editingStep === step.id;
-
-                  return (
-                    <motion.div
-                      key={step.id}
-                      layout
-                      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ 
-                        type: "spring",
-                        stiffness: 300,
-                        damping: 25,
-                        delay: i * 0.1
-                      }}
-                    >
-                      <Card
-                        padding="sm"
-                        className={`${isCompleted ? 'opacity-50' : ''} ${isStuck ? 'opacity-40 border-dashed' : ''} ${isSkipped ? 'opacity-30' : ''}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium shrink-0 transition-colors ${
-                            isCompleted ? 'bg-sage-100 text-sage-600' : 'bg-cream-100 text-text-muted'
-                          }`}>
-                            {isCompleted ? '\u2713' : i + 1}
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            {isEditing ? (
-                              <input
-                                autoFocus
-                                defaultValue={step.title}
-                                className="w-full bg-transparent text-sm font-medium text-text-primary focus:outline-none border-b border-sage-300 pb-0.5"
-                                onBlur={(e) => {
-                                  updateStepTitle(step.id, e.target.value);
-                                  setEditingStep(null);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                }}
-                              />
-                            ) : (
-                              <p className="text-sm font-medium text-text-primary truncate">
-                                {step.title}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {isEditing ? (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => updateStepTime(step.id, step.durationMinutes - 1)}
-                                  className="p-1 rounded-lg hover:bg-cream-200 transition-colors cursor-pointer"
-                                >
-                                  <Minus size={14} className="text-text-muted" />
-                                </button>
-                                <span className="text-xs text-text-muted w-10 text-center">{step.durationMinutes} min</span>
-                                <button
-                                  onClick={() => updateStepTime(step.id, step.durationMinutes + 1)}
-                                  className="p-1 rounded-lg hover:bg-cream-200 transition-colors cursor-pointer"
-                                >
-                                  <Plus size={14} className="text-text-muted" />
-                                </button>
-                              </div>
-                            ) : (
-                              <>
-                                <span className="flex items-center gap-1 text-xs text-text-muted bg-cream-100 px-2 py-1 rounded-full">
-                                  <Clock size={12} />
-                                  {step.durationMinutes} min
-                                </span>
-                                <button
-                                  onClick={() => setEditingStep(isEditing ? null : step.id)}
-                                  className="p-1 rounded-lg hover:bg-cream-200 transition-colors cursor-pointer"
-                                >
-                                  {isEditing ? <MoreHorizontal size={14} className="text-text-muted" /> : <Pencil size={12} className="text-text-muted" />}
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mb-8"
+            >
+              <TreeBreakdown
+                goalTitle={currentSession.goalTitle}
+                steps={currentSession.steps}
+              />
+            </motion.div>
 
             <motion.div
               initial={{ opacity: 0 }}
