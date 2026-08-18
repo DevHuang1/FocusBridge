@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-serif: 'DM Serif Display', Georgia, serif;
+
+  --color-cream-50: #FDFCFA;
+  --color-cream-100: #F9F6F1;
+  --color-cream-200: #F0EDE5;
+  --color-cream-300: #E3DFD4;
+
+  --color-sage-50: #F4F7F4;
+  --color-sage-100: #E4ECE4;
+  --color-sage-200: #C9D9C9;
+  --color-sage-300: #A3BFA3;
+  --color-sage-400: #7DA37D;
+  --color-sage-500: #5C8A5C;
+  --color-sage-600: #4A6F4A;
+
+  --color-warm-50: #FDF8F5;
+  --color-warm-100: #F8EDE4;
+  --color-warm-200: #F0D9C5;
+  --color-warm-300: #E4BE9E;
+  --color-warm-400: #D4A07A;
+  --color-warm-500: #C08552;
+
+  --color-text-primary: #2C2C2C;
+  --color-text-secondary: #6B6B6B;
+  --color-text-muted: #9A9A9A;
+
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #FDFCFA;
+  --color-surface-overlay: rgba(0, 0, 0, 0.3);
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-cream-50);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background-color: var(--color-sage-200);
+}
+
+input:focus, textarea:focus, button:focus-visible {
+  outline: 2px solid var(--color-sage-400);
+  outline-offset: 2px;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
