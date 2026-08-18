@@ -18,6 +18,7 @@ export interface FocusSession {
   feedback: FeedbackLevel[];
   startedAt: string;
   completedAt?: string;
+  summary?: string;
 }
 
 export interface UserProfile {

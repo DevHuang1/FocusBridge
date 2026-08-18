@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.42",
+    "ai": "^7.0.66",
     "date-fns": "^4.4.0",
     "framer-motion": "^13.1.0",
     "lucide-react": "^1.31.0",

@@ -3,9 +3,12 @@ import { useAppStore } from '../store/useAppStore';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ChevronLeft, CheckCircle2, Clock, TrendingUp, Heart, ArrowRight, Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { aiService } from '../lib/ai';
 
 export function ReflectionScreen() {
-  const { currentSession, profile, setScreen, resetToHome } = useAppStore();
+  const { currentSession, profile, setScreen, resetToHome, setSummary } = useAppStore();
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const completedSteps = currentSession?.steps.filter(s => s.status === 'completed') ?? [];
   const isSessionDone = currentSession?.completedAt;
@@ -15,6 +18,22 @@ export function ReflectionScreen() {
   const recentEasy = profile.recentFeedback.filter(f => f === 'easy').length;
   const recentOkay = profile.recentFeedback.filter(f => f === 'okay').length;
   const recentHard = profile.recentFeedback.filter(f => f === 'too_much').length;
+
+  useEffect(() => {
+    if (currentSession && !currentSession.summary && !summaryLoading && isSessionDone) {
+      setSummaryLoading(true);
+      aiService.generateSessionSummary(currentSession)
+        .then((summary) => {
+          setSummary(summary);
+        })
+        .catch((e) => {
+          console.error("Failed to generate summary", e);
+        })
+        .finally(() => {
+          setSummaryLoading(false);
+        });
+    }
+  }, [currentSession, summaryLoading, setSummary, isSessionDone]);
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-12 md:py-16">
@@ -58,6 +77,22 @@ export function ReflectionScreen() {
               : 'You showed up and tried. That\'s what counts.'}
           </p>
         </motion.div>
+
+        {currentSession?.summary && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-8"
+          >
+            <div className="p-5 bg-sage-50/50 border border-sage-100 rounded-2xl relative overflow-hidden">
+              <Sparkles size={16} className="absolute top-4 right-4 text-sage-300" />
+              <p className="text-sm font-medium text-sage-700 mb-2 uppercase tracking-wide">AI Reflection</p>
+              <p className="text-text-primary leading-relaxed font-medium">
+                {currentSession.summary}
+              </p>
+            </div>
+          </motion.div>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 12 }}

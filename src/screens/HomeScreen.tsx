@@ -16,10 +16,10 @@ function getGreeting(): string {
 }
 
 export function HomeScreen() {
-  const { generateBreakdown, currentSession, checkInMessage, dismissCheckIn, profile, aiTyping } = useAppStore();
+  const { breakdownGoal, currentSession, checkInMessage, dismissCheckIn, profile, aiTyping } = useAppStore();
 
   const handleGoalSubmit = (goal: string) => {
-    generateBreakdown(goal);
+    breakdownGoal(goal);
   };
 
   const completedSteps = currentSession?.steps.filter(s => s.status === 'completed').length ?? 0;

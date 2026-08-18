@@ -7,6 +7,12 @@ export function useTimer(initialMinutes: number) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
+    setSecondsLeft(totalSeconds);
+    setElapsed(0);
+    setIsRunning(false);
+  }, [totalSeconds]);
+
+  useEffect(() => {
     if (!isRunning || secondsLeft <= 0) return;
 
     const interval = setInterval(() => {

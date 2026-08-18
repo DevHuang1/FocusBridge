@@ -1,22 +1,41 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { TypingIndicator } from '../components/TypingIndicator';
-import { Clock, ArrowRight, Minus, Plus, MoreHorizontal, ChevronLeft, Pencil } from 'lucide-react';
+import { Clock, ArrowRight, Minus, Plus, MoreHorizontal, ChevronLeft, Pencil, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
 export function BreakdownScreen() {
-  const { currentSession, startStep, setScreen, aiTyping, updateStepTime, updateStepTitle } = useAppStore();
+  const { currentSession, startStep, setScreen, isBreakingDown, breakdownText, updateStepTime, updateStepTitle, breakdownGoal, goalInput } = useAppStore();
   const [editingStep, setEditingStep] = useState<string | null>(null);
 
-  if (!currentSession) {
+  if (!currentSession && !isBreakingDown) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Button onClick={() => setScreen('home')}>Go back</Button>
+      <div className="min-h-screen flex flex-col items-center justify-center px-4">
+        <h2 className="text-xl text-text-primary mb-6 font-serif">What are you working on?</h2>
+        <div className="w-full max-w-lg space-y-4">
+          <textarea 
+            className="w-full p-4 rounded-2xl bg-cream-50 border border-cream-200 text-text-primary focus:outline-none focus:ring-2 focus:ring-sage-300 resize-none"
+            rows={3}
+            placeholder="e.g. Write a research paper on climate change..."
+            value={goalInput}
+            onChange={(e) => useAppStore.getState().setGoalInput(e.target.value)}
+          />
+          <Button 
+            size="lg" 
+            className="w-full" 
+            onClick={() => goalInput && breakdownGoal(goalInput)}
+          >
+            <Sparkles size={18} className="mr-2" />
+            Break it down
+          </Button>
+        </div>
       </div>
     );
   }
+
+  if (!currentSession) return null;
 
   const firstPendingIdx = currentSession.steps.findIndex(s => s.status === 'pending');
 
@@ -46,8 +65,15 @@ export function BreakdownScreen() {
           </h1>
         </motion.div>
 
-        {aiTyping ? (
-          <TypingIndicator label="Breaking this down" />
+        {isBreakingDown ? (
+          <div className="space-y-4">
+            <TypingIndicator label="Thinking" />
+            <div className="p-4 bg-cream-50/50 rounded-2xl border border-cream-100 min-h-[100px]">
+              <p className="text-sm text-text-secondary font-mono whitespace-pre-wrap leading-relaxed">
+                {breakdownText}<span className="animate-pulse text-sage-400">|</span>
+              </p>
+            </div>
+          </div>
         ) : (
           <motion.div
             initial={{ opacity: 0 }}
@@ -65,94 +91,102 @@ export function BreakdownScreen() {
             </motion.p>
 
             <div className="space-y-3 mb-8">
-              {currentSession.steps.map((step, i) => {
-                const isCompleted = step.status === 'completed';
-                const isStuck = step.status === 'stuck';
-                const isSkipped = step.status === 'skipped';
-                const isEditing = editingStep === step.id;
+              <AnimatePresence>
+                {currentSession.steps.map((step, i) => {
+                  const isCompleted = step.status === 'completed';
+                  const isStuck = step.status === 'stuck';
+                  const isSkipped = step.status === 'skipped';
+                  const isEditing = editingStep === step.id;
 
-                return (
-                  <motion.div
-                    key={step.id}
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.08 * i + 0.4 }}
-                  >
-                    <Card
-                      padding="sm"
-                      className={`${isCompleted ? 'opacity-50' : ''} ${isStuck ? 'opacity-40' : ''} ${isSkipped ? 'opacity-30' : ''}`}
+                  return (
+                    <motion.div
+                      key={step.id}
+                      layout
+                      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ 
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 25,
+                        delay: i * 0.1
+                      }}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium shrink-0 ${
-                          isCompleted ? 'bg-sage-100 text-sage-600' : 'bg-cream-100 text-text-muted'
-                        }`}>
-                          {isCompleted ? '\u2713' : i + 1}
-                        </div>
+                      <Card
+                        padding="sm"
+                        className={`${isCompleted ? 'opacity-50' : ''} ${isStuck ? 'opacity-40 border-dashed' : ''} ${isSkipped ? 'opacity-30' : ''}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium shrink-0 transition-colors ${
+                            isCompleted ? 'bg-sage-100 text-sage-600' : 'bg-cream-100 text-text-muted'
+                          }`}>
+                            {isCompleted ? '\u2713' : i + 1}
+                          </div>
 
-                        <div className="flex-1 min-w-0">
-                          {isEditing ? (
-                            <input
-                              autoFocus
-                              defaultValue={step.title}
-                              className="w-full bg-transparent text-sm font-medium text-text-primary focus:outline-none border-b border-sage-300 pb-0.5"
-                              onBlur={(e) => {
-                                updateStepTitle(step.id, e.target.value);
-                                setEditingStep(null);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                              }}
-                            />
-                          ) : (
-                            <p className="text-sm font-medium text-text-primary truncate">
-                              {step.title}
-                            </p>
-                          )}
-                        </div>
+                          <div className="flex-1 min-w-0">
+                            {isEditing ? (
+                              <input
+                                autoFocus
+                                defaultValue={step.title}
+                                className="w-full bg-transparent text-sm font-medium text-text-primary focus:outline-none border-b border-sage-300 pb-0.5"
+                                onBlur={(e) => {
+                                  updateStepTitle(step.id, e.target.value);
+                                  setEditingStep(null);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                }}
+                              />
+                            ) : (
+                              <p className="text-sm font-medium text-text-primary truncate">
+                                {step.title}
+                              </p>
+                            )}
+                          </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {isEditing ? (
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => updateStepTime(step.id, step.durationMinutes - 1)}
-                                className="p-1 rounded-lg hover:bg-cream-200 transition-colors cursor-pointer"
-                              >
-                                <Minus size={14} className="text-text-muted" />
-                              </button>
-                              <span className="text-xs text-text-muted w-10 text-center">{step.durationMinutes} min</span>
-                              <button
-                                onClick={() => updateStepTime(step.id, step.durationMinutes + 1)}
-                                className="p-1 rounded-lg hover:bg-cream-200 transition-colors cursor-pointer"
-                              >
-                                <Plus size={14} className="text-text-muted" />
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <span className="flex items-center gap-1 text-xs text-text-muted bg-cream-100 px-2 py-1 rounded-full">
-                                <Clock size={12} />
-                                {step.durationMinutes} min
-                              </span>
-                              <button
-                                onClick={() => setEditingStep(isEditing ? null : step.id)}
-                                className="p-1 rounded-lg hover:bg-cream-200 transition-colors cursor-pointer"
-                              >
-                                {isEditing ? <MoreHorizontal size={14} className="text-text-muted" /> : <Pencil size={12} className="text-text-muted" />}
-                              </button>
-                            </>
-                          )}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {isEditing ? (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => updateStepTime(step.id, step.durationMinutes - 1)}
+                                  className="p-1 rounded-lg hover:bg-cream-200 transition-colors cursor-pointer"
+                                >
+                                  <Minus size={14} className="text-text-muted" />
+                                </button>
+                                <span className="text-xs text-text-muted w-10 text-center">{step.durationMinutes} min</span>
+                                <button
+                                  onClick={() => updateStepTime(step.id, step.durationMinutes + 1)}
+                                  className="p-1 rounded-lg hover:bg-cream-200 transition-colors cursor-pointer"
+                                >
+                                  <Plus size={14} className="text-text-muted" />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <span className="flex items-center gap-1 text-xs text-text-muted bg-cream-100 px-2 py-1 rounded-full">
+                                  <Clock size={12} />
+                                  {step.durationMinutes} min
+                                </span>
+                                <button
+                                  onClick={() => setEditingStep(isEditing ? null : step.id)}
+                                  className="p-1 rounded-lg hover:bg-cream-200 transition-colors cursor-pointer"
+                                >
+                                  {isEditing ? <MoreHorizontal size={14} className="text-text-muted" /> : <Pencil size={12} className="text-text-muted" />}
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </Card>
-                  </motion.div>
-                );
-              })}
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             </div>
 
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 + currentSession.steps.length * 0.08 }}
+              transition={{ delay: 0.6 + currentSession.steps.length * 0.1 }}
               className="space-y-3"
             >
               {firstPendingIdx >= 0 && (
