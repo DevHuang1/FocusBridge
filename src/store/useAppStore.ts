@@ -250,7 +250,30 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
       });
     } catch (error) {
       console.error("Stuck AI failed:", error);
-      set({ checkInMessage: "That's okay. Let's try something else." });
+      const currentStep = get().currentSession!.steps[get().currentSession!.currentStepIndex];
+      const originalTitle = currentStep.originalTitle ?? currentStep.title;
+      const fallbackStep: TaskStep = {
+        id: `step-${Date.now()}-stuck`,
+        title: `Just look at: ${originalTitle.toLowerCase()}`,
+        durationMinutes: 1,
+        status: 'active',
+      };
+
+      const steps = [...get().currentSession!.steps];
+      steps.splice(get().currentSession!.currentStepIndex + 1, 0, fallbackStep);
+      steps[get().currentSession!.currentStepIndex] = {
+        ...steps[get().currentSession!.currentStepIndex],
+        status: 'stuck',
+      };
+
+      set({
+        currentSession: {
+          ...get().currentSession!,
+          steps,
+          currentStepIndex: get().currentSession!.currentStepIndex + 1,
+        },
+        checkInMessage: null,
+      });
     }
   },
 
@@ -291,21 +314,56 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     });
   },
 
-  makeStepEasier: () => {
+  makeStepEasier: async () => {
     const { currentSession } = get();
     if (!currentSession) return;
 
-    const steps = [...currentSession.steps];
     const idx = currentSession.currentStepIndex;
-    steps[idx] = {
-      ...steps[idx],
-      durationMinutes: Math.max(1, Math.round(steps[idx].durationMinutes * 0.5)),
-      title: `Just look at: ${steps[idx].title.toLowerCase()}`,
-    };
+    const step = currentSession.steps[idx];
+    const originalTitle = step.originalTitle ?? step.title;
 
-    set({
-      currentSession: { ...currentSession, steps },
-    });
+    set({ checkInMessage: "Let me simplify this..." });
+
+    try {
+      const rawResponse = await aiService.generateEasierAlternative(originalTitle);
+      console.log("Easier AI response:", rawResponse);
+
+      let newTitle = step.title;
+      let newDuration = Math.max(1, Math.round(step.durationMinutes * 0.5));
+
+      const parsed = aiService.extractJsonObject(rawResponse);
+      if (parsed && parsed.title && parsed.durationMinutes) {
+        newTitle = parsed.title;
+        newDuration = parsed.durationMinutes;
+      } else {
+        newTitle = `Gently: ${originalTitle.toLowerCase()}`;
+      }
+
+      const steps = [...currentSession.steps];
+      steps[idx] = {
+        ...steps[idx],
+        title: newTitle,
+        durationMinutes: newDuration,
+        originalTitle,
+      };
+
+      set({
+        currentSession: { ...currentSession, steps },
+        checkInMessage: null,
+      });
+    } catch (error) {
+      console.error("Easier AI failed:", error);
+      const steps = [...currentSession.steps];
+      steps[idx] = {
+        ...steps[idx],
+        durationMinutes: Math.max(1, Math.round(step.durationMinutes * 0.5)),
+        originalTitle,
+      };
+      set({
+        currentSession: { ...currentSession, steps },
+        checkInMessage: null,
+      });
+    }
   },
 
   updateStepTime: (stepId: string, minutes: number) => {

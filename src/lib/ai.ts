@@ -121,6 +121,17 @@ Make it the tiniest possible version of the task.`,
     return text;
   },
 
+  async generateEasierAlternative(stepTitle: string): Promise<string> {
+    const { text } = await generateText({
+      model: featherless.chat(MODEL),
+      system: `The user wants an easier version of a task. Output ONLY a raw JSON object. No explanation, no markdown.
+Object has "title" (string, a gentler/simpler rewording) and "durationMinutes" (number, 1-3).
+Make it feel less intimidating while keeping the same intent.`,
+      prompt: `Make easier: ${stepTitle}`,
+    });
+    return text;
+  },
+
   async generateSessionSummary(session: { goalTitle: string; steps: TaskStep[]; completedAt?: string }): Promise<string> {
     const { text } = await generateText({
       model: featherless.chat(MODEL),

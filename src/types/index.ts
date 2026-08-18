@@ -8,6 +8,7 @@ export interface TaskStep {
   durationMinutes: number;
   status: TaskStatus;
   originalDuration?: number;
+  originalTitle?: string;
 }
 
 export interface FocusSession {
