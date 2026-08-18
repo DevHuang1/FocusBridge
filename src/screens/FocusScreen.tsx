@@ -2,13 +2,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { Button } from '../components/Button';
 import { FeedbackPrompt } from '../components/FeedbackPrompt';
+import { DistractionButton } from '../components/DistractionButton';
 import { useTimer } from '../components/useTimer';
 import { CircularProgress } from '../components/CircularProgress';
 import { ChevronLeft, Pause, Play, CheckCircle, HelpCircle, Minimize2, MoreHorizontal } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export function FocusScreen() {
-  const { currentSession, completeStep, skipStep, markStuck, makeStepSmaller, makeStepEasier, provideFeedback, setScreen } = useAppStore();
+  const { currentSession, completeStep, navigateAfterStep, skipStep, markStuck, makeStepSmaller, makeStepEasier, provideFeedback, setScreen } = useAppStore();
   const [showFeedback, setShowFeedback] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
 
@@ -33,8 +34,8 @@ export function FocusScreen() {
   return (
     <FocusContent
       step={step}
-      onComplete={() => {
-        completeStep();
+      onComplete={async () => {
+        await completeStep();
         setShowFeedback(true);
       }}
       onStuck={() => {
@@ -44,7 +45,11 @@ export function FocusScreen() {
       onSkip={skipStep}
       onMakeSmaller={() => { makeStepSmaller(); setShowOptions(false); }}
       onMakeEasier={() => { makeStepEasier(); setShowOptions(false); }}
-      onFeedback={(f) => { provideFeedback(f); setShowFeedback(false); }}
+      onFeedback={async (f) => {
+        provideFeedback(f);
+        setShowFeedback(false);
+        await navigateAfterStep();
+      }}
       showFeedback={showFeedback}
       showOptions={showOptions}
       onToggleOptions={() => setShowOptions(!showOptions)}
@@ -197,7 +202,7 @@ function FocusContent({ step, onComplete, onStuck, onSkip, onMakeSmaller, onMake
                       exit={{ opacity: 0, y: -8, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="flex gap-2 mt-2 justify-center">
+                      <div className="flex gap-2 mt-2 justify-center flex-wrap">
                         <Button variant="ghost" size="sm" onClick={onMakeSmaller}>
                           <Minimize2 size={14} />
                           Make smaller
@@ -213,6 +218,8 @@ function FocusContent({ step, onComplete, onStuck, onSkip, onMakeSmaller, onMake
                   )}
                 </AnimatePresence>
               </div>
+
+              <DistractionButton onLog={useAppStore.getState().logDistraction} />
             </motion.div>
           </motion.div>
         )}

@@ -1,19 +1,20 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AppState, FocusSession, TaskStep, FeedbackLevel, UserProfile } from '../types';
+import type { AppState, TaskStep, FeedbackLevel, UserProfile, Goal, MoodEntry, MoodLevel, EnergyLevel, DistractionEntry } from '../types';
 import { aiService } from '../lib/ai';
 
 interface AppStore extends AppState {
   isBreakingDown: boolean;
   breakdownText: string;
   sessionSteps: TaskStep[];
-  
+
   setScreen: (screen: AppState['screen']) => void;
   setGoalInput: (input: string) => void;
   breakdownGoal: (goal: string) => Promise<void>;
   startStep: (index: number) => void;
   startFocusSession: () => void;
   completeStep: () => void;
+  navigateAfterStep: () => Promise<void>;
   skipStep: () => void;
   markStuck: () => Promise<void>;
   provideFeedback: (feedback: FeedbackLevel) => void;
@@ -24,6 +25,10 @@ interface AppStore extends AppState {
   dismissCheckIn: () => void;
   resetToHome: () => void;
   setSummary: (summary: string) => void;
+  setMood: (mood: MoodLevel, energy: EnergyLevel) => void;
+  logDistraction: (label: string) => void;
+  resumeSession: (goalId: string, sessionId: string) => void;
+  deleteGoal: (goalId: string) => void;
 }
 
 const defaultProfile: UserProfile = {
@@ -32,6 +37,7 @@ const defaultProfile: UserProfile = {
   totalStepsCompleted: 0,
   commonPatterns: [],
   recentFeedback: [],
+  moodHistory: [],
 };
 
 function simulateTyping(text: string, set: any): Promise<void> {
@@ -60,9 +66,28 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   isBreakingDown: false,
   breakdownText: '',
   sessionSteps: [],
+  goals: [],
+  distractionLog: [],
 
   setScreen: (screen) => set({ screen }),
   setGoalInput: (input) => set({ goalInput: input }),
+
+  setMood: (mood: MoodLevel, energy: EnergyLevel) => {
+    const { profile, currentSession } = get();
+    const entry: MoodEntry = { mood, energy, timestamp: new Date().toISOString() };
+
+    const updatedSession = currentSession
+      ? { ...currentSession, mood: entry }
+      : null;
+
+    set({
+      profile: {
+        ...profile,
+        moodHistory: [...profile.moodHistory, entry].slice(-30),
+      },
+      currentSession: updatedSession,
+    });
+  },
 
   breakdownGoal: async (goal: string) => {
     set({
@@ -75,18 +100,18 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
         id: `session-${Date.now()}`,
         goalTitle: goal,
         steps: [],
+        groups: [],
         currentStepIndex: 0,
         feedback: [],
         startedAt: new Date().toISOString(),
+        distractions: [],
       },
     });
 
     try {
       const rawResponse = await aiService.generateBreakdown(goal, get().profile);
-      console.log("AI raw response:", rawResponse);
 
       const parsed = aiService.extractJsonArray(rawResponse);
-      console.log("Parsed steps:", parsed);
 
       let steps: TaskStep[] = [];
       if (parsed && Array.isArray(parsed) && parsed.length > 0) {
@@ -99,7 +124,6 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
       }
 
       if (steps.length === 0) {
-        console.warn("No valid steps parsed, using fallback");
         steps = [
           { id: `step-${Date.now()}-0`, title: "Open the relevant materials", durationMinutes: 2, status: 'pending' },
           { id: `step-${Date.now()}-1`, title: "Read or review the first section", durationMinutes: 5, status: 'pending' },
@@ -107,13 +131,37 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
         ];
       }
 
+      const groups = [{
+        label: 'Getting started',
+        emoji: '🌱',
+        steps,
+      }];
+
       await simulateTyping(rawResponse, set);
+
+      const newGoal: Goal = {
+        id: `goal-${Date.now()}`,
+        title: goal,
+        sessions: [{
+          id: `session-${Date.now()}`,
+          goalTitle: goal,
+          steps,
+          groups,
+          currentStepIndex: 0,
+          feedback: [],
+          startedAt: new Date().toISOString(),
+          distractions: [],
+        }],
+        createdAt: new Date().toISOString(),
+        archived: false,
+      };
 
       const prev = get().currentSession!;
       set({
-        currentSession: { ...prev, steps },
+        currentSession: { ...prev, steps, groups },
         sessionSteps: steps,
         isBreakingDown: false,
+        goals: [...get().goals, newGoal],
       });
     } catch (error) {
       console.error("AI breakdown failed:", error);
@@ -124,7 +172,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
       ];
       const prev = get().currentSession!;
       set({
-        currentSession: { ...prev, steps: fallbackSteps },
+        currentSession: { ...prev, steps: fallbackSteps, groups: [{ label: 'Getting started', emoji: '🌱', steps: fallbackSteps }] },
         sessionSteps: fallbackSteps,
         isBreakingDown: false,
       });
@@ -160,39 +208,36 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
 
     const steps = [...currentSession.steps];
     const idx = currentSession.currentStepIndex;
-  steps[idx] = { ...steps[idx], status: 'completed' };
+    steps[idx] = { ...steps[idx], status: 'completed' };
 
     const completedCount = steps.filter(s => s.status === 'completed').length;
     const allDone = completedCount === steps.length;
 
-    const updatedSession: FocusSession = {
-      ...currentSession,
-      steps,
-      completedAt: allDone ? new Date().toISOString() : undefined,
-    };
+    set({
+      currentSession: {
+        ...currentSession,
+        steps,
+        completedAt: allDone ? new Date().toISOString() : undefined,
+      },
+      profile: {
+        ...profile,
+        totalSessions: allDone ? profile.totalSessions + 1 : profile.totalSessions,
+        totalStepsCompleted: profile.totalStepsCompleted + 1,
+      },
+    });
+  },
+
+  navigateAfterStep: async () => {
+    const { currentSession } = get();
+    if (!currentSession) return;
+
+    const completedCount = currentSession.steps.filter(s => s.status === 'completed').length;
+    const allDone = completedCount === currentSession.steps.length;
 
     if (allDone) {
-      set({
-        currentSession: updatedSession,
-        screen: 'reflection',
-        profile: {
-          ...profile,
-          totalSessions: profile.totalSessions + 1,
-          totalStepsCompleted: profile.totalStepsCompleted + completedCount,
-        },
-      });
+      set({ screen: 'reflection' });
     } else {
-      const checkIn = aiService.generateCheckIn(completedCount, steps.length, profile.recentFeedback);
-      set({
-        currentSession: updatedSession,
-        screen: 'home',
-        checkInMessage: checkIn,
-        profile: {
-          ...profile,
-          totalSessions: profile.totalSessions + 1,
-          totalStepsCompleted: profile.totalStepsCompleted + 1,
-        },
-      });
+      set({ screen: 'home', checkInMessage: aiService.getRandomEncouragement() });
     }
   },
 
@@ -219,7 +264,6 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
 
     try {
       const rawResponse = await aiService.generateStuckAlternative(currentStep.title);
-      console.log("Stuck AI response:", rawResponse);
 
       let newStep: TaskStep = {
         id: `step-${Date.now()}-stuck`,
@@ -326,7 +370,6 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
 
     try {
       const rawResponse = await aiService.generateEasierAlternative(originalTitle);
-      console.log("Easier AI response:", rawResponse);
 
       let newTitle = step.title;
       let newDuration = Math.max(1, Math.round(step.durationMinutes * 0.5));
@@ -394,6 +437,38 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     set({ currentSession: { ...currentSession, summary } });
   },
 
+  logDistraction: (label: string) => {
+    const { currentSession } = get();
+    if (!currentSession) return;
+
+    const entry: DistractionEntry = {
+      id: `dist-${Date.now()}`,
+      label,
+      timestamp: new Date().toISOString(),
+    };
+
+    const distractions = [...currentSession.distractions, entry];
+    set({
+      currentSession: { ...currentSession, distractions },
+      distractionLog: [...get().distractionLog, entry],
+    });
+  },
+
+  resumeSession: (goalId: string, sessionId: string) => {
+    const { goals } = get();
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) return;
+    const session = goal.sessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    set({ currentSession: session, screen: 'home' });
+  },
+
+  deleteGoal: (goalId: string) => {
+    const { goals } = get();
+    set({ goals: goals.filter(g => g.id !== goalId) });
+  },
+
   dismissCheckIn: () => set({ checkInMessage: null }),
 
   resetToHome: () => set({
@@ -407,5 +482,6 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   partialize: (state) => ({
     currentSession: state.currentSession,
     profile: state.profile,
+    goals: state.goals,
   }),
 }));

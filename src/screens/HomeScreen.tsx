@@ -5,8 +5,9 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { CheckInBanner } from '../components/CheckInBanner';
 import { ProgressBar } from '../components/ProgressBar';
-import { ArrowRight, Coffee, Zap, Target } from 'lucide-react';
+import { ArrowRight, Coffee, Zap, Target, BarChart3, LogOut } from 'lucide-react';
 import { format } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -17,6 +18,7 @@ function getGreeting(): string {
 
 export function HomeScreen() {
   const { breakdownGoal, currentSession, checkInMessage, dismissCheckIn, profile, aiTyping } = useAppStore();
+  const { signOut, user } = useAuth();
 
   const handleGoalSubmit = (goal: string) => {
     breakdownGoal(goal);
@@ -179,13 +181,31 @@ export function HomeScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8 }}
-            className="mt-8 text-center"
+            className="mt-8 flex flex-col items-center gap-3"
           >
             <button
-              onClick={() => useAppStore.getState().setScreen('reflection')}
-              className="text-sm text-text-muted hover:text-sage-500 transition-colors cursor-pointer"
+              onClick={() => useAppStore.getState().setScreen('dashboard')}
+              className="text-sm text-text-muted hover:text-sage-500 transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              View your progress →
+              <BarChart3 size={14} />
+              View dashboard
+            </button>
+          </motion.div>
+        )}
+
+        {user && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+            className="mt-8 pb-8"
+          >
+            <button
+              onClick={signOut}
+              className="text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <LogOut size={12} />
+              Sign out
             </button>
           </motion.div>
         )}

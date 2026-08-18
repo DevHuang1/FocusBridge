@@ -2,18 +2,20 @@ import { motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { ChevronLeft, CheckCircle2, Clock, TrendingUp, Heart, ArrowRight, Sparkles } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ChevronLeft, CheckCircle2, Clock, TrendingUp, Heart, ArrowRight, Sparkles, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
 import { aiService } from '../lib/ai';
+import { SoftConfetti } from '../components/SoftConfetti';
 
 export function ReflectionScreen() {
   const { currentSession, profile, setScreen, resetToHome, setSummary } = useAppStore();
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
 
-  const completedSteps = currentSession?.steps.filter(s => s.status === 'completed') ?? [];
+  const completedSteps = useMemo(() => currentSession?.steps.filter(s => s.status === 'completed') ?? [], [currentSession]);
   const isSessionDone = currentSession?.completedAt;
-  const stuckSteps = currentSession?.steps.filter(s => s.status === 'stuck') ?? [];
-  const totalMinutes = completedSteps.reduce((sum, s) => sum + s.durationMinutes, 0);
+  const stuckSteps = useMemo(() => currentSession?.steps.filter(s => s.status === 'stuck') ?? [], [currentSession]);
+  const totalMinutes = useMemo(() => completedSteps.reduce((sum, s) => sum + s.durationMinutes, 0), [completedSteps]);
 
   const recentEasy = profile.recentFeedback.filter(f => f === 'easy').length;
   const recentOkay = profile.recentFeedback.filter(f => f === 'okay').length;
@@ -25,6 +27,7 @@ export function ReflectionScreen() {
       aiService.generateSessionSummary(currentSession)
         .then((summary) => {
           setSummary(summary);
+          setAiSummary(summary);
         })
         .catch((e) => {
           console.error("Failed to generate summary", e);
@@ -33,10 +36,11 @@ export function ReflectionScreen() {
           setSummaryLoading(false);
         });
     }
-  }, [currentSession, summaryLoading, setSummary, isSessionDone]);
+  }, [currentSession?.id]);
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-12 md:py-16">
+      <SoftConfetti active={!!isSessionDone} />
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -71,28 +75,29 @@ export function ReflectionScreen() {
           <h1 className="font-serif text-3xl md:text-4xl text-text-primary mb-3">
             {isSessionDone ? 'You did it.' : 'Good work today.'}
           </h1>
-          <p className="text-text-secondary text-lg">
-            {isSessionDone
-              ? 'Every step you took matters. That\'s real progress.'
-              : 'You showed up and tried. That\'s what counts.'}
-          </p>
-        </motion.div>
 
-        {currentSession?.summary && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="mb-8"
-          >
-            <div className="p-5 bg-sage-50/50 border border-sage-100 rounded-2xl relative overflow-hidden">
-              <Sparkles size={16} className="absolute top-4 right-4 text-sage-300" />
-              <p className="text-sm font-medium text-sage-700 mb-2 uppercase tracking-wide">AI Reflection</p>
-              <p className="text-text-primary leading-relaxed font-medium">
-                {currentSession.summary}
-              </p>
+          {summaryLoading ? (
+            <div className="flex justify-center gap-1.5 py-2">
+              {[0, 1, 2].map(i => (
+                <motion.div
+                  key={i}
+                  className="w-2 h-2 rounded-full bg-sage-300"
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+                />
+              ))}
             </div>
-          </motion.div>
-        )}
+          ) : (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="text-text-secondary text-lg leading-relaxed"
+            >
+              {aiSummary || currentSession?.summary}
+            </motion.p>
+          )}
+        </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -121,6 +126,33 @@ export function ReflectionScreen() {
           </div>
         </motion.div>
 
+        {completedSteps.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="mb-8"
+          >
+            <h2 className="text-lg font-medium text-text-primary mb-4">Win wall</h2>
+            <div className="grid grid-cols-2 gap-2">
+              {completedSteps.map((step, i) => (
+                <motion.div
+                  key={step.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.05 * i + 0.3 }}
+                >
+                  <div className="bg-sage-50 border border-sage-100 rounded-2xl p-3 text-center">
+                    <CheckCircle2 size={16} className="text-sage-400 mx-auto mb-1.5" />
+                    <p className="text-xs text-text-primary leading-snug line-clamp-2">{step.title}</p>
+                    <p className="text-xs text-text-muted mt-1">{step.durationMinutes}m</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         {currentSession && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -139,6 +171,34 @@ export function ReflectionScreen() {
                     <span className="text-text-muted ml-auto">{step.durationMinutes}m</span>
                   </div>
                 ))}
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
+        {currentSession && currentSession.distractions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="mb-8"
+          >
+            <h2 className="text-lg font-medium text-text-primary mb-4">Distractions this session</h2>
+            <Card>
+              <div className="space-y-2">
+                {(() => {
+                  const counts: Record<string, number> = {};
+                  currentSession!.distractions.forEach(d => {
+                    counts[d.label] = (counts[d.label] || 0) + 1;
+                  });
+                  return Object.entries(counts).map(([label, count]) => (
+                    <div key={label} className="flex items-center gap-3">
+                      <AlertCircle size={14} className="text-warm-400 shrink-0" />
+                      <span className="text-sm text-text-primary flex-1">{label}</span>
+                      <span className="text-xs text-text-muted">×{count}</span>
+                    </div>
+                  ));
+                })()}
               </div>
             </Card>
           </motion.div>
