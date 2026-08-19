@@ -1,8 +1,6 @@
-import { motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { TextInput } from '../components/TextInput';
 import { Card } from '../components/Card';
-import { Button } from '../components/Button';
 import { CheckInBanner } from '../components/CheckInBanner';
 import { ProgressBar } from '../components/ProgressBar';
 import { ArrowRight, Coffee, Zap, Target, BarChart3, LogOut } from 'lucide-react';
@@ -17,12 +15,15 @@ function getGreeting(): string {
 }
 
 export function HomeScreen() {
-  const { breakdownGoal, currentSession, checkInMessage, dismissCheckIn, profile, aiTyping } = useAppStore();
-  const { signOut, user } = useAuth();
-
-  const handleGoalSubmit = (goal: string) => {
-    breakdownGoal(goal);
-  };
+  const breakdownGoal = useAppStore((s) => s.breakdownGoal);
+  const currentSession = useAppStore((s) => s.currentSession);
+  const checkInMessage = useAppStore((s) => s.checkInMessage);
+  const dismissCheckIn = useAppStore((s) => s.dismissCheckIn);
+  const aiTyping = useAppStore((s) => s.aiTyping);
+  const startFocusSession = useAppStore((s) => s.startFocusSession);
+  const setScreen = useAppStore((s) => s.setScreen);
+  const signOut = useAuth((s) => s.signOut);
+  const user = useAuth((s) => s.user);
 
   const completedSteps = currentSession?.steps.filter(s => s.status === 'completed').length ?? 0;
   const totalSteps = currentSession?.steps.length ?? 0;
@@ -34,130 +35,66 @@ export function HomeScreen() {
       <CheckInBanner message={checkInMessage} onDismiss={dismissCheckIn} />
 
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-12 md:py-20">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-10 max-w-xl"
-        >
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.1, duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 bg-sage-50 text-sage-500 rounded-full text-sm font-medium mb-6"
-          >
-            <div className="w-1.5 h-1.5 rounded-full bg-sage-400" />
+        <div className="text-center mb-10 max-w-xl animate-fade-in">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-6" style={{ backgroundColor: 'var(--color-theme-surface)', color: 'var(--color-theme-primary)' }}>
+            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-theme-primary)' }} />
             Focus Bridge
-          </motion.div>
+          </div>
+          <h1 className="font-serif text-4xl md:text-5xl text-text-primary mb-4 leading-tight">{getGreeting()}.</h1>
+          <p className="text-xl text-text-secondary">What's on your mind?</p>
+        </div>
 
-          <h1 className="font-serif text-4xl md:text-5xl text-text-primary mb-4 leading-tight">
-            {getGreeting()}.
-          </h1>
-          <p className="text-xl text-text-secondary">
-            What's on your mind?
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-          className="w-full max-w-xl mb-12"
-        >
+        <div className="w-full max-w-xl mb-12 animate-fade-in" style={{ animationDelay: '100ms' }}>
           {aiTyping ? (
             <div className="bg-surface border-2 border-cream-200 rounded-3xl px-6 py-5">
               <div className="flex items-center gap-3">
                 <div className="flex gap-1.5">
                   {[0, 1, 2].map((i) => (
-                    <motion.div
-                      key={i}
-                      className="w-2 h-2 rounded-full bg-sage-400"
-                      animate={{ opacity: [0.3, 1, 0.3] }}
-                      transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
-                    />
+                    <div key={i} className="w-2 h-2 rounded-full animate-pulse-soft" style={{ backgroundColor: 'var(--color-theme-primary)', animationDelay: `${i * 200}ms` }} />
                   ))}
                 </div>
                 <span className="text-text-muted">Let me think about that...</span>
               </div>
             </div>
           ) : (
-            <TextInput onSubmit={handleGoalSubmit} />
+            <TextInput onSubmit={(goal) => breakdownGoal(goal)} />
           )}
-        </motion.div>
+        </div>
 
         {hasActiveSession && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
-            className="w-full max-w-xl space-y-6"
-          >
-            <h2 className="text-lg font-medium text-text-primary flex items-center gap-2">
-              <Target size={18} className="text-sage-500" />
-              Today's Focus
-            </h2>
-
+          <div className="w-full max-w-xl space-y-6 animate-fade-in" style={{ animationDelay: '300ms' }}>
+            <h2 className="text-lg font-medium text-text-primary flex items-center gap-2"><Target size={18} style={{ color: 'var(--color-theme-primary)' }} />Today's Focus</h2>
             <Card>
               <div className="flex items-start gap-4 mb-4">
-                <div className="p-2 bg-warm-50 rounded-xl shrink-0 mt-0.5">
-                  <Zap size={18} className="text-warm-500" />
-                </div>
+                <div className="p-2 rounded-xl shrink-0 mt-0.5" style={{ backgroundColor: 'var(--color-theme-surface)' }}><Zap size={18} style={{ color: 'var(--color-theme-primary)' }} /></div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-text-muted mb-1">
-                    {format(new Date(), 'EEEE, MMMM d')}
-                  </p>
-                  <h3 className="text-lg font-medium text-text-primary truncate">
-                    {currentSession!.goalTitle}
-                  </h3>
+                  <p className="text-sm text-text-muted mb-1">{format(new Date(), 'EEEE, MMMM d')}</p>
+                  <h3 className="text-lg font-medium text-text-primary truncate">{currentSession!.goalTitle}</h3>
                 </div>
               </div>
-
               <ProgressBar progress={completedSteps / totalSteps} total={totalSteps} completed={completedSteps} className="mb-5" />
-
               <div className="space-y-2.5">
-                {pendingSteps.slice(0, 3).map((step, i) => (
-                    <motion.div
-                      key={step.id}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.1 * i }}
-                      className="flex items-center gap-3 px-4 py-3 bg-cream-50 rounded-xl"
-                    >
-                      <div className="w-5 h-5 rounded-full border-2 border-cream-300 shrink-0" />
-                      <span className="flex-1 text-sm text-text-primary">{step.title}</span>
-                      <span className="text-xs text-text-muted bg-cream-200 px-2 py-0.5 rounded-full">
-                        {step.durationMinutes} min
-                      </span>
-                    </motion.div>
+                {pendingSteps.slice(0, 3).map((step) => (
+                  <div key={step.id} className="flex items-center gap-3 px-4 py-3 bg-cream-50 rounded-xl">
+                    <div className="w-5 h-5 rounded-full border-2 border-cream-300 shrink-0" />
+                    <span className="flex-1 text-sm text-text-primary">{step.title}</span>
+                    <span className="text-xs text-text-muted bg-cream-200 px-2 py-0.5 rounded-full">{step.durationMinutes} min</span>
+                  </div>
                 ))}
-                {pendingSteps.length > 3 && (
-                  <p className="text-sm text-text-muted text-center py-1">
-                    +{pendingSteps.length - 3} more steps
-                  </p>
-                )}
+                {pendingSteps.length > 3 && <p className="text-sm text-text-muted text-center py-1">+{pendingSteps.length - 3} more steps</p>}
               </div>
-
               <div className="mt-5">
-                <Button onClick={() => useAppStore.getState().startFocusSession()} className="w-full" size="lg">
-                  Start next step
-                  <ArrowRight size={18} />
-                </Button>
+                <button onClick={startFocusSession} className="w-full inline-flex items-center justify-center gap-2 rounded-2xl font-medium px-8 py-4 text-lg text-white shadow-sm cursor-pointer transition-all duration-150 hover:brightness-110 active:scale-[0.98]" style={{ backgroundColor: 'var(--color-theme-primary)' }}>
+                  Start next step <ArrowRight size={18} />
+                </button>
               </div>
             </Card>
-          </motion.div>
+          </div>
         )}
 
         {!hasActiveSession && !aiTyping && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="w-full max-w-xl"
-          >
-            <h2 className="text-lg font-medium text-text-primary mb-4 flex items-center gap-2">
-              <Coffee size={18} className="text-warm-400" />
-              Quick start
-            </h2>
+          <div className="w-full max-w-xl animate-fade-in" style={{ animationDelay: '500ms' }}>
+            <h2 className="text-lg font-medium text-text-primary mb-4 flex items-center gap-2"><Coffee size={18} className="text-warm-400" />Quick start</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
                 { emoji: '📚', text: 'Study for an exam' },
@@ -165,7 +102,7 @@ export function HomeScreen() {
                 { emoji: '🧹', text: 'Clean my room' },
                 { emoji: '💻', text: 'Fix a bug' },
               ].map((suggestion) => (
-                <Card key={suggestion.text} padding="sm" hover onClick={() => handleGoalSubmit(`I need to ${suggestion.text.toLowerCase()}`)}>
+                <Card key={suggestion.text} padding="sm" hover onClick={() => breakdownGoal(`I need to ${suggestion.text.toLowerCase()}`)}>
                   <div className="flex items-center gap-3">
                     <span className="text-xl">{suggestion.emoji}</span>
                     <span className="text-sm font-medium text-text-primary">{suggestion.text}</span>
@@ -173,41 +110,23 @@ export function HomeScreen() {
                 </Card>
               ))}
             </div>
-          </motion.div>
+          </div>
         )}
 
-        {profile.totalSessions > 0 && !hasActiveSession && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            className="mt-8 flex flex-col items-center gap-3"
-          >
-            <button
-              onClick={() => useAppStore.getState().setScreen('dashboard')}
-              className="text-sm text-text-muted hover:text-sage-500 transition-colors cursor-pointer flex items-center gap-1.5"
-            >
-              <BarChart3 size={14} />
-              View dashboard
+        {currentSession && currentSession.steps.length > 0 && !hasActiveSession && (
+          <div className="mt-8 flex flex-col items-center gap-3 animate-fade-in" style={{ animationDelay: '600ms' }}>
+            <button onClick={() => setScreen('dashboard')} className="text-sm text-text-muted hover:text-sage-500 transition-colors cursor-pointer flex items-center gap-1.5">
+              <BarChart3 size={14} />View dashboard
             </button>
-          </motion.div>
+          </div>
         )}
 
         {user && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1 }}
-            className="mt-8 pb-8"
-          >
-            <button
-              onClick={signOut}
-              className="text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer flex items-center gap-1.5"
-            >
-              <LogOut size={12} />
-              Sign out
+          <div className="mt-8 pb-8 animate-fade-in" style={{ animationDelay: '700ms' }}>
+            <button onClick={signOut} className="text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer flex items-center gap-1.5">
+              <LogOut size={12} />Sign out
             </button>
-          </motion.div>
+          </div>
         )}
       </main>
     </div>

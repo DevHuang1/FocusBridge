@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 
 interface CardProps {
   children: React.ReactNode;
@@ -7,25 +6,23 @@ interface CardProps {
   padding?: 'sm' | 'md' | 'lg';
   hover?: boolean;
   onClick?: () => void;
+  style?: React.CSSProperties;
 }
 
-export function Card({ children, className = '', padding = 'md', hover = false, onClick }: CardProps) {
-  const paddings = {
-    sm: 'p-4',
-    md: 'p-6',
-    lg: 'p-8',
+export function Card({ children, className = '', padding = 'md', hover = false, onClick, style }: CardProps) {
+  const paddings: Record<string, string> = {
+    sm: 'p-5',
+    md: 'p-7',
+    lg: 'p-9',
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      whileHover={hover ? { scale: 1.01, boxShadow: '0 8px 30px rgba(0,0,0,0.06)' } : undefined}
+    <div
       onClick={onClick}
-      className={`bg-surface rounded-3xl shadow-sm border border-cream-200/60 ${paddings[padding]} ${hover ? 'cursor-pointer' : ''} ${className}`}
+      style={style}
+      className={`bg-surface rounded-[1.5rem] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-cream-200/50 ${paddings[padding]} ${hover ? 'cursor-pointer hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:border-cream-200 transition-all duration-250' : ''} ${className}`}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }

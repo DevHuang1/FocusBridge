@@ -1,5 +1,3 @@
-import { motion } from 'framer-motion';
-
 interface ProgressBarProps {
   progress: number;
   total: number;
@@ -9,18 +7,20 @@ interface ProgressBarProps {
 
 export function ProgressBar({ progress, total, completed, className = '' }: ProgressBarProps) {
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      <div className="flex-1 h-2 bg-cream-200 rounded-full overflow-hidden">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${progress * 100}%` }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
-          className="h-full bg-sage-400 rounded-full"
+    <div className={className}>
+      <div className="h-2 bg-cream-100 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-600 ease-out"
+          style={{
+            width: `${Math.min(100, Math.max(0, progress * 100))}%`,
+            backgroundColor: 'var(--color-theme-primary)',
+          }}
         />
       </div>
-      <span className="text-sm text-text-muted tabular-nums">
-        {completed}/{total}
-      </span>
+      <div className="flex justify-between mt-1.5">
+        <span className="text-xs text-text-muted">{completed} of {total}</span>
+        <span className="text-xs text-text-muted">{Math.round(progress * 100)}%</span>
+      </div>
     </div>
   );
 }

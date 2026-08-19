@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 const client = new OpenAI({
-  apiKey: process.env.FEATHERLESS_API_KEY,
+  apiKey: process.env.VITE_FEATHERLESS_API_KEY,
   baseURL: 'https://api.featherless.ai/v1',
 });
 

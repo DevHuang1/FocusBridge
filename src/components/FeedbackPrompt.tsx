@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Heart } from 'lucide-react';
 import type { FeedbackLevel } from '../types';
 
@@ -14,11 +13,7 @@ const options: { level: FeedbackLevel; emoji: string; label: string }[] = [
 
 export function FeedbackPrompt({ onFeedback }: FeedbackPromptProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="bg-surface border border-cream-200 rounded-3xl p-8 max-w-md mx-auto text-center shadow-sm"
-    >
+    <div className="bg-surface border border-cream-200 rounded-3xl p-8 max-w-md mx-auto text-center shadow-sm animate-fade-in">
       <div className="flex justify-center mb-4">
         <div className="p-3 bg-warm-50 rounded-2xl">
           <Heart size={24} className="text-warm-400" />
@@ -28,18 +23,16 @@ export function FeedbackPrompt({ onFeedback }: FeedbackPromptProps) {
       <p className="text-text-secondary mb-6">This helps me adjust the next step.</p>
       <div className="flex gap-3 justify-center">
         {options.map((opt) => (
-          <motion.button
+          <button
             key={opt.level}
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
             onClick={() => onFeedback(opt.level)}
-            className="flex flex-col items-center gap-2 px-6 py-4 rounded-2xl border-2 border-cream-200 hover:border-sage-300 transition-colors cursor-pointer"
+            className="flex flex-col items-center gap-2 px-6 py-4 rounded-2xl border-2 border-cream-200 hover:border-sage-300 hover:scale-105 active:scale-95 transition-all cursor-pointer"
           >
             <span className="text-2xl">{opt.emoji}</span>
             <span className="text-sm font-medium text-text-secondary">{opt.label}</span>
-          </motion.button>
+          </button>
         ))}
       </div>
-    </motion.div>
+    </div>
   );
 }

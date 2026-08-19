@@ -1,14 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AppState, TaskStep, FeedbackLevel, UserProfile, Goal, MoodEntry, MoodLevel, EnergyLevel, DistractionEntry } from '../types';
+import type { AppState, TaskStep, FeedbackLevel, UserProfile, Goal, MoodEntry, MoodLevel, EnergyLevel, DistractionEntry, Screen } from '../types';
 import { aiService } from '../lib/ai';
+import { trackActivity, getActiveUserId } from '../lib/activity';
+import { logAIFeedback } from '../lib/data';
 
 interface AppStore extends AppState {
   isBreakingDown: boolean;
   breakdownText: string;
   sessionSteps: TaskStep[];
 
-  setScreen: (screen: AppState['screen']) => void;
+  setScreen: (screen: Screen) => void;
   setGoalInput: (input: string) => void;
   breakdownGoal: (goal: string) => Promise<void>;
   startStep: (index: number) => void;
@@ -57,7 +59,7 @@ function simulateTyping(text: string, set: any): Promise<void> {
 }
 
 export const useAppStore = create<AppStore>()(persist((set, get) => ({
-  screen: 'home',
+  screen: 'dashboard',
   goalInput: '',
   currentSession: null,
   profile: defaultProfile,
@@ -95,7 +97,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
       breakdownText: '',
       sessionSteps: [],
       goalInput: goal,
-      screen: 'breakdown',
+      screen: 'work_tasks',
       currentSession: {
         id: `session-${Date.now()}`,
         goalTitle: goal,
@@ -163,6 +165,8 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
         isBreakingDown: false,
         goals: [...get().goals, newGoal],
       });
+      trackActivity('ai_request_created', { properties: { type: 'breakdown' } });
+      trackActivity('task_breakdown_generated', { properties: { stepCount: steps.length } });
     } catch (error) {
       console.error("AI breakdown failed:", error);
       const fallbackSteps: TaskStep[] = [
@@ -189,6 +193,20 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     set({
       currentSession: { ...currentSession, steps, currentStepIndex: index },
       screen: 'focus',
+    });
+
+    trackActivity('task_started', {
+      objectType: 'task_step',
+      objectId: steps[index].id,
+      properties: { stepIndex: index },
+    });
+    trackActivity('task_step_accepted', {
+      objectType: 'task_step',
+      objectId: steps[index].id,
+      properties: { stepIndex: index, durationMinutes: steps[index].durationMinutes },
+    });
+    trackActivity('focus_session_started', {
+      properties: { durationMinutes: steps[index].durationMinutes },
     });
   },
 
@@ -225,6 +243,13 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
         totalStepsCompleted: profile.totalStepsCompleted + 1,
       },
     });
+
+    trackActivity('task_completed', {
+      objectType: 'task_step',
+      objectId: steps[idx].id,
+      properties: { stepIndex: idx },
+    });
+    trackActivity('focus_session_completed', {});
   },
 
   navigateAfterStep: async () => {
@@ -237,7 +262,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     if (allDone) {
       set({ screen: 'reflection' });
     } else {
-      set({ screen: 'home', checkInMessage: aiService.getRandomEncouragement() });
+      set({ screen: 'dashboard', checkInMessage: aiService.getRandomEncouragement() });
     }
   },
 
@@ -251,8 +276,15 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
 
     set({
       currentSession: { ...currentSession, steps },
-      screen: 'home',
+      screen: 'dashboard',
     });
+
+    trackActivity('task_postponed', {
+      objectType: 'task_step',
+      objectId: steps[idx].id,
+      properties: { stepIndex: idx },
+    });
+    trackActivity('focus_session_abandoned', {});
   },
 
   markStuck: async () => {
@@ -292,6 +324,12 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
         },
         checkInMessage: null,
       });
+
+      trackActivity('task_marked_stuck', {
+        objectType: 'task_step',
+        objectId: currentStep.id,
+        properties: { stepIndex: currentSession.currentStepIndex },
+      });
     } catch (error) {
       console.error("Stuck AI failed:", error);
       const currentStep = get().currentSession!.steps[get().currentSession!.currentStepIndex];
@@ -306,7 +344,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
       const steps = [...get().currentSession!.steps];
       steps.splice(get().currentSession!.currentStepIndex + 1, 0, fallbackStep);
       steps[get().currentSession!.currentStepIndex] = {
-        ...steps[get().currentSession!.currentStepIndex],
+        ...get().currentSession!.steps[get().currentSession!.currentStepIndex],
         status: 'stuck',
       };
 
@@ -340,6 +378,12 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
       },
       checkInMessage: null,
     });
+
+    const userId = getActiveUserId();
+    if (userId) {
+      const outcome = feedback === 'too_much' ? 'rejected' : 'accepted';
+      void logAIFeedback(userId, { outcome, suggestionType: 'task_step', sourceEvent: 'feedback' });
+    }
   },
 
   makeStepSmaller: () => {
@@ -355,6 +399,11 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     set({
       currentSession: { ...currentSession, steps },
       sessionSteps: steps,
+    });
+
+    trackActivity('task_step_simplified', {
+      objectType: 'task_step',
+      properties: { stepIndex: currentSession.currentStepIndex },
     });
   },
 
@@ -394,6 +443,12 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
         currentSession: { ...currentSession, steps },
         checkInMessage: null,
       });
+
+      trackActivity('task_step_simplified', {
+        objectType: 'task_step',
+        objectId: steps[idx].id,
+        properties: { stepIndex: idx },
+      });
     } catch (error) {
       console.error("Easier AI failed:", error);
       const steps = [...currentSession.steps];
@@ -405,6 +460,12 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
       set({
         currentSession: { ...currentSession, steps },
         checkInMessage: null,
+      });
+
+      trackActivity('task_step_simplified', {
+        objectType: 'task_step',
+        objectId: steps[idx].id,
+        properties: { stepIndex: idx },
       });
     }
   },
@@ -418,6 +479,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     );
 
     set({ currentSession: { ...currentSession, steps } });
+    trackActivity('task_updated', { objectType: 'task_step', objectId: stepId, properties: { field: 'durationMinutes' } });
   },
 
   updateStepTitle: (stepId: string, title: string) => {
@@ -429,6 +491,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     );
 
     set({ currentSession: { ...currentSession, steps } });
+    trackActivity('task_updated', { objectType: 'task_step', objectId: stepId, properties: { field: 'title' } });
   },
 
   setSummary: (summary: string) => {
@@ -461,7 +524,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     const session = goal.sessions.find(s => s.id === sessionId);
     if (!session) return;
 
-    set({ currentSession: session, screen: 'home' });
+    set({ currentSession: session, screen: 'work_tasks' });
   },
 
   deleteGoal: (goalId: string) => {
@@ -472,7 +535,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   dismissCheckIn: () => set({ checkInMessage: null }),
 
   resetToHome: () => set({
-    screen: 'home',
+    screen: 'dashboard',
     goalInput: '',
     currentSession: null,
     checkInMessage: null,

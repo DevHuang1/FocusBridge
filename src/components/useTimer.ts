@@ -54,6 +54,7 @@ export function useTimer(initialMinutes: number) {
     progress,
     formatted: formatTime(secondsLeft),
     elapsedFormatted: formatTime(elapsed),
+    elapsedSeconds: elapsed,
     isComplete: secondsLeft === 0 && elapsed > 0,
   };
 }

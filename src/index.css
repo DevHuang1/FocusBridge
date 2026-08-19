@@ -4,6 +4,7 @@
   --font-sans: 'DM Sans', system-ui, sans-serif;
   --font-serif: 'DM Serif Display', Georgia, serif;
 
+  /* ─── Base Palette (Sage default) ──────────────── */
   --color-cream-50: #FDFCFA;
   --color-cream-100: #F9F6F1;
   --color-cream-200: #F0EDE5;
@@ -31,8 +32,91 @@
   --color-surface: #FFFFFF;
   --color-surface-raised: #FDFCFA;
   --color-surface-overlay: rgba(0, 0, 0, 0.3);
+
+  /* ─── Color Theme Accents ──────────────────────── */
+  --color-theme-primary: #5C8A5C;
+  --color-theme-primary-light: #E4ECE4;
+  --color-theme-primary-dark: #4A6F4A;
+  --color-theme-surface: #F4F7F4;
+  --color-theme-border: #C9D9C9;
+
+  /* ─── Motion Tokens ────────────────────────────── */
+  --motion-duration-none: 0ms;
+  --motion-duration-soft: 200ms;
+  --motion-duration-balanced: 350ms;
+  --motion-duration-energizing: 500ms;
+
+  --motion-ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ─── Spacing Density ──────────────────────────── */
+  --space-density-minimal: 0.75;
+  --space-density-comfortable: 1;
+  --space-density-detailed: 1.25;
 }
 
+/* ─── Theme Variants (applied via data-theme on body) ──── */
+[data-theme="mist"] {
+  --color-theme-primary: #6B8FA3;
+  --color-theme-primary-light: #E8F0F4;
+  --color-theme-primary-dark: #4A6E80;
+  --color-theme-surface: #F2F6F8;
+  --color-theme-border: #C4D4DE;
+  --color-cream-50: #F7FAFB;
+  --color-cream-100: #EEF3F5;
+  --color-cream-200: #DDE6EA;
+  --color-cream-300: #C4D4DE;
+}
+
+[data-theme="lavender"] {
+  --color-theme-primary: #8B7DA8;
+  --color-theme-primary-light: #EDE8F3;
+  --color-theme-primary-dark: #6B5D88;
+  --color-theme-surface: #F5F3F8;
+  --color-theme-border: #D4CBE3;
+  --color-cream-50: #F8F6FB;
+  --color-cream-100: #F0ECF5;
+  --color-cream-200: #E1DAED;
+  --color-cream-300: #D4CBE3;
+}
+
+[data-theme="sky"] {
+  --color-theme-primary: #5B93B5;
+  --color-theme-primary-light: #E6F0F6;
+  --color-theme-primary-dark: #3D7595;
+  --color-theme-surface: #F2F7FA;
+  --color-theme-border: #BDD5E3;
+  --color-cream-50: #F5FAFD;
+  --color-cream-100: #EBF4F8;
+  --color-cream-200: #D5E6EF;
+  --color-cream-300: #BDD5E3;
+}
+
+[data-theme="sand"] {
+  --color-theme-primary: #B5956B;
+  --color-theme-primary-light: #F5EEE2;
+  --color-theme-primary-dark: #95754B;
+  --color-theme-surface: #FAF6F0;
+  --color-theme-border: #DDD0BC;
+  --color-cream-50: #FDF9F3;
+  --color-cream-100: #F8F1E6;
+  --color-cream-200: #EDE0CC;
+  --color-cream-300: #DDD0BC;
+}
+
+[data-theme="rose"] {
+  --color-theme-primary: #B57A8A;
+  --color-theme-primary-light: #F5E8EC;
+  --color-theme-primary-dark: #955A6A;
+  --color-theme-surface: #FAF2F4;
+  --color-theme-border: #E0C4CC;
+  --color-cream-50: #FDF5F7;
+  --color-cream-100: #F8EAEF;
+  --color-cream-200: #EDD4DC;
+  --color-cream-300: #E0C4CC;
+}
+
+/* ─── Global Reset & Base ────────────────────────────────────── */
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -45,28 +129,150 @@ body {
 }
 
 ::selection {
-  background-color: var(--color-sage-200);
+  background-color: var(--color-theme-primary-light);
+  color: var(--color-theme-primary-dark);
 }
 
 input:focus, textarea:focus, button:focus-visible {
-  outline: 2px solid var(--color-sage-400);
+  outline: 2px solid var(--color-theme-primary);
   outline-offset: 2px;
 }
 
+/* ─── Reduced Motion ─────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+[data-reduced-motion="on"] *,
+[data-reduced-motion="on"] *::before,
+[data-reduced-motion="on"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ─── Animations ─────────────────────────────────────────────── */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes gentle-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(92, 138, 92, 0); }
+  50% { box-shadow: 0 0 0 8px rgba(92, 138, 92, 0.08); }
 }
 
 .animate-fade-in {
-  animation: fade-in 0.5s ease-out forwards;
+  animation: fade-in 0.5s ease-out both;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .animate-pulse-soft {
   animation: pulse-soft 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 30%, var(--color-theme-primary-light) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ─── Toast Animations ──────────────────────────────────────── */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toast-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(16px) scale(0.95); }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-toast-out {
+  animation: toast-out 0.25s ease-in both;
+}
+
+/* ─── Thinking Dots ─────────────────────────────────────────── */
+@keyframes thinking-dot {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+.thinking-dot:nth-child(1) { animation: thinking-dot 1.2s ease-in-out infinite; }
+.thinking-dot:nth-child(2) { animation: thinking-dot 1.2s ease-in-out 0.15s infinite; }
+.thinking-dot:nth-child(3) { animation: thinking-dot 1.2s ease-in-out 0.3s infinite; }
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes grow-down {
+  from { height: 0; }
+  to { height: 100%; }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-grow-down {
+  animation: grow-down 0.4s ease-out forwards;
+  height: 0;
+}
+
+.animate-gentle-glow {
+  animation: gentle-glow 3s ease-in-out infinite;
+}
+
+/* ─── Scrollbar Styling ──────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-cream-300);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ─── Focus ring utility ─────────────────────────────────────── */
+.focus-ring {
+  @apply outline-none focus-visible:outline-2 focus-visible:outline-offset-2;
+  outline-color: var(--color-theme-primary);
 }

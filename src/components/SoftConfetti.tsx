@@ -1,59 +1,24 @@
-import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
 
-interface Particle {
-  id: number;
-  x: number;
-  y: number;
-  color: string;
-  delay: number;
-  size: number;
+
+interface SoftConfettiProps {
+  active: boolean;
 }
 
-const COLORS = ['#A3BFA3', '#C9D9C9', '#E4BE9E', '#F0D9C5', '#D4A07A', '#7DA37D'];
-
-export function SoftConfetti({ active }: { active: boolean }) {
-  const [particles, setParticles] = useState<Particle[]>([]);
-
-  useEffect(() => {
-    if (!active) { setParticles([]); return; }
-
-    const newParticles: Particle[] = Array.from({ length: 24 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: -10 - Math.random() * 20,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      delay: Math.random() * 0.6,
-      size: 6 + Math.random() * 6,
-    }));
-    setParticles(newParticles);
-  }, [active]);
-
-  if (!active || particles.length === 0) return null;
+export function SoftConfetti({ active }: SoftConfettiProps) {
+  if (!active) return null;
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-      {particles.map((p) => (
-        <motion.div
-          key={p.id}
-          initial={{ x: `${p.x}vw`, y: `${p.y}vh`, opacity: 1, rotate: 0, scale: 1 }}
-          animate={{
-            y: '110vh',
-            opacity: [1, 1, 0],
-            rotate: Math.random() > 0.5 ? 360 : -360,
-            scale: [1, 1.1, 0.8],
-          }}
-          transition={{
-            duration: 2.5 + Math.random() * 1.5,
-            delay: p.delay,
-            ease: 'easeOut',
-          }}
+    <div className="fixed inset-0 pointer-events-none z-50" aria-hidden="true">
+      {Array.from({ length: 20 }).map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-2 h-2 rounded-full animate-fade-in"
           style={{
-            position: 'absolute',
-            width: p.size,
-            height: p.size,
-            borderRadius: Math.random() > 0.5 ? '50%' : '2px',
-            backgroundColor: p.color,
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            backgroundColor: ['var(--color-theme-primary)', 'var(--color-warm-300)', 'var(--color-sage-300)'][i % 3],
+            opacity: 0.4,
+            animationDelay: `${i * 100}ms`,
           }}
         />
       ))}

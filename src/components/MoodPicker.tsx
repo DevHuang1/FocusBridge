@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import type { MoodLevel, EnergyLevel } from '../types';
 
 interface MoodPickerProps {
@@ -28,17 +27,15 @@ export function MoodPicker({ onSelect }: MoodPickerProps) {
         <p className="text-sm text-text-muted mb-4 uppercase tracking-wide font-medium">How are you feeling?</p>
         <div className="grid grid-cols-5 gap-2">
           {moods.map((m, i) => (
-            <motion.button
+            <button
               key={m.level}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 * i }}
               onClick={() => onSelect(m.level, 'medium')}
-              className="flex flex-col items-center gap-1.5 p-3 rounded-2xl hover:bg-cream-200 transition-colors cursor-pointer group"
+              className="flex flex-col items-center gap-1.5 p-3 rounded-2xl hover:bg-cream-200 transition-all cursor-pointer group hover:scale-105 active:scale-95 animate-fade-in"
+              style={{ animationDelay: `${i * 50}ms` }}
             >
               <span className="text-2xl group-hover:scale-110 transition-transform">{m.emoji}</span>
               <span className="text-xs text-text-muted">{m.label}</span>
-            </motion.button>
+            </button>
           ))}
         </div>
       </div>
@@ -53,36 +50,31 @@ export function MoodEnergyPicker({ onSelect: _onSelect }: { onSelect: (mood: Moo
         <p className="text-sm text-text-muted mb-4 uppercase tracking-wide font-medium">How are you feeling?</p>
         <div className="grid grid-cols-5 gap-2">
           {moods.map((m, i) => (
-            <motion.button
+            <button
               key={m.level}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 * i }}
-              className="flex flex-col items-center gap-1.5 p-3 rounded-2xl hover:bg-cream-200 transition-colors cursor-pointer group"
+              className="flex flex-col items-center gap-1.5 p-3 rounded-2xl hover:bg-cream-200 transition-all cursor-pointer group hover:scale-105 active:scale-95 animate-fade-in"
+              style={{ animationDelay: `${i * 50}ms` }}
               data-mood={m.level}
             >
               <span className="text-2xl group-hover:scale-110 transition-transform">{m.emoji}</span>
               <span className="text-xs text-text-muted">{m.label}</span>
-            </motion.button>
+            </button>
           ))}
         </div>
       </div>
-
       <div>
         <p className="text-sm text-text-muted mb-4 uppercase tracking-wide font-medium">Energy level?</p>
         <div className="grid grid-cols-5 gap-2">
           {energies.map((e, i) => (
-            <motion.button
+            <button
               key={e.level}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 * i + 0.25 }}
-              className="flex flex-col items-center gap-1.5 p-3 rounded-2xl hover:bg-cream-200 transition-colors cursor-pointer group"
+              className="flex flex-col items-center gap-1.5 p-3 rounded-2xl hover:bg-cream-200 transition-all cursor-pointer group hover:scale-105 active:scale-95 animate-fade-in"
+              style={{ animationDelay: `${250 + i * 50}ms` }}
               data-energy={e.level}
             >
               <span className="text-2xl group-hover:scale-110 transition-transform">{e.emoji}</span>
               <span className="text-xs text-text-muted">{e.label}</span>
-            </motion.button>
+            </button>
           ))}
         </div>
       </div>
