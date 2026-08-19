@@ -49,7 +49,8 @@ function AppShell() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cream-50 flex items-center justify-center">
+      <div className="min-h-screen bg-cream-50 flex flex-col items-center justify-center gap-4">
+        <img src="/focus_bridge.png" alt="" className="w-12 h-12 object-contain animate-pulse" />
         <div className="w-6 h-6 border-2 border-cream-300 rounded-full animate-spin" style={{ borderTopColor: 'var(--color-theme-primary)' }} />
       </div>
     );

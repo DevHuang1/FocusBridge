@@ -58,8 +58,8 @@ export function AuthScreen() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <Card className="max-w-md w-full">
         <div className="text-center mb-8">
+          <img src="/focus_bridge.png" alt="" className="w-14 h-14 object-contain mx-auto mb-4" />
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-4" style={{ backgroundColor: 'var(--color-theme-surface)', color: 'var(--color-theme-primary)' }}>
-            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-theme-primary)' }} />
             FocusBridge
           </div>
           <h1 className="font-serif text-3xl text-text-primary mb-2">

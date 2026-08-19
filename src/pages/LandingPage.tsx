@@ -66,7 +66,7 @@ export function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 transition-all duration-300" style={{ backgroundColor: scrollY > 20 ? 'rgba(253,252,250,0.92)' : 'transparent', backdropFilter: scrollY > 20 ? 'blur(12px)' : 'none' }}>
         <div className="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--color-theme-primary)' }} />
+            <img src="/focus_bridge.png" alt="" className="w-7 h-7 object-contain" />
             <span className="text-base font-semibold tracking-tight text-text-primary">FocusBridge</span>
           </div>
           <Button size="sm" onClick={() => navigate('/app')}>
@@ -78,6 +78,7 @@ export function LandingPage() {
       {/* Hero */}
       <section className="pt-32 pb-20 px-5">
         <div className="max-w-3xl mx-auto text-center">
+          <img src="/focus_bridge.png" alt="FocusBridge" className="w-20 h-20 object-contain mx-auto mb-8 animate-fade-in" />
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-sage-50 border border-sage-100 text-sm text-text-secondary mb-8 animate-fade-in">
             <Leaf size={14} className="text-sage-400" />
             Built for the Pixel Forge AI Hackathon
@@ -175,7 +176,7 @@ export function LandingPage() {
       <footer className="py-10 px-5 border-t border-cream-200/60">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-theme-primary)' }} />
+            <img src="/focus_bridge.png" alt="" className="w-5 h-5 object-contain" />
             <span className="text-sm font-semibold text-text-secondary">FocusBridge</span>
           </div>
           <p className="text-xs text-text-muted">Pixel Forge AI Hackathon 2026</p>
