@@ -3,10 +3,22 @@ rules_version = '2';
 // FocusBridge Firestore security rules (RLS equivalent).
 // Every collection is scoped to the signed-in user's own UID. No public
 // reads or writes; no cross-user access. Docs store the owner as `userId`.
+//
+// NOTE: on create, `resource` is null, so rules must guard the write-side
+// check with `request.resource != null` BEFORE touching `resource.data`,
+// otherwise the whole rule throws and denies valid inserts.
 service cloud.firestore {
   match /databases/{database}/documents {
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
+    }
+
+    function incomingIsOwner() {
+      return request.resource != null && isOwner(request.resource.data.userId);
+    }
+
+    function existingIsOwner() {
+      return resource != null && isOwner(resource.data.userId);
     }
 
     // Per-user singleton docs (document id == user UID).
@@ -22,36 +34,56 @@ service cloud.firestore {
 
     // Scoped collections: any document where userId field matches the caller.
     match /daily_check_ins/{doc} {
-      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+      allow read: if existingIsOwner();
+      allow create: if incomingIsOwner();
+      allow update, delete: if existingIsOwner() && incomingIsOwner();
     }
     match /tasks/{doc} {
-      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+      allow read: if existingIsOwner();
+      allow create: if incomingIsOwner();
+      allow update, delete: if existingIsOwner() && incomingIsOwner();
     }
     match /task_steps/{doc} {
-      allow read, write: if isOwner(resource.data.taskId)
-        || (request.resource != null && isOwner(request.resource.data.taskId));
+      allow read: if resource != null && isOwner(resource.data.taskId);
+      allow create: if request.resource != null && isOwner(request.resource.data.taskId);
+      allow update, delete: if resource != null && request.resource != null
+        && isOwner(resource.data.taskId) && isOwner(request.resource.data.taskId);
     }
     match /projects/{doc} {
-      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+      allow read: if existingIsOwner();
+      allow create: if incomingIsOwner();
+      allow update, delete: if existingIsOwner() && incomingIsOwner();
     }
     match /roadmap_nodes/{doc} {
-      allow read, write: if isOwner(resource.data.projectId)
-        || (request.resource != null && isOwner(request.resource.data.projectId));
+      allow read: if resource != null && isOwner(resource.data.projectId);
+      allow create: if request.resource != null && isOwner(request.resource.data.projectId);
+      allow update, delete: if resource != null && request.resource != null
+        && isOwner(resource.data.projectId) && isOwner(request.resource.data.projectId);
     }
     match /focus_sessions/{doc} {
-      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+      allow read: if existingIsOwner();
+      allow create: if incomingIsOwner();
+      allow update, delete: if existingIsOwner() && incomingIsOwner();
     }
     match /daily_reflections/{doc} {
-      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+      allow read: if existingIsOwner();
+      allow create: if incomingIsOwner();
+      allow update, delete: if existingIsOwner() && incomingIsOwner();
     }
     match /user_activity_events/{doc} {
-      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+      allow read: if existingIsOwner();
+      allow create: if incomingIsOwner();
+      allow update, delete: if existingIsOwner() && incomingIsOwner();
     }
     match /ai_interaction_feedback/{doc} {
-      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+      allow read: if existingIsOwner();
+      allow create: if incomingIsOwner();
+      allow update, delete: if existingIsOwner() && incomingIsOwner();
     }
     match /ai_context_audit/{doc} {
-      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+      allow read: if existingIsOwner();
+      allow create: if incomingIsOwner();
+      allow update, delete: if existingIsOwner() && incomingIsOwner();
     }
   }
 }

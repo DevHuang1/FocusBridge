@@ -40,6 +40,8 @@ interface PersonalizationState {
   setWorkRhythm: (v: WorkRhythm) => void;
   setEncouragementStyle: (v: EncouragementStyle) => void;
   setDailyCheckInEnabled: (v: boolean) => void;
+  setSoftStartEnabled: (v: boolean) => void;
+  setTransitionBridgeEnabled: (v: boolean) => void;
   resetPreferences: () => void;
   applyPartialPreferences: (partial: Partial<UserPreferences>) => void;
 
@@ -111,6 +113,14 @@ export const usePersonalizationStore = create<PersonalizationState>()(
       setDailyCheckInEnabled: (v) => {
         set((s) => ({ preferences: { ...s.preferences, dailyCheckInEnabled: v } }));
         trackPrefChange('dailyCheckInEnabled', v);
+      },
+      setSoftStartEnabled: (v) => {
+        set((s) => ({ preferences: { ...s.preferences, softStartEnabled: v } }));
+        trackPrefChange('softStartEnabled', v);
+      },
+      setTransitionBridgeEnabled: (v) => {
+        set((s) => ({ preferences: { ...s.preferences, transitionBridgeEnabled: v } }));
+        trackPrefChange('transitionBridgeEnabled', v);
       },
 
       resetPreferences: () => {

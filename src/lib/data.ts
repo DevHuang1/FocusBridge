@@ -58,6 +58,8 @@ export async function fetchPreferences(userId: string): Promise<UserPreferences 
     workRhythm: data.workRhythm ?? 'flexible',
     encouragementStyle: data.encouragementStyle ?? 'neutral',
     dailyCheckInEnabled: data.dailyCheckInEnabled ?? true,
+    softStartEnabled: data.softStartEnabled ?? true,
+    transitionBridgeEnabled: data.transitionBridgeEnabled ?? true,
   };
 }
 
@@ -75,6 +77,8 @@ export async function savePreferences(userId: string, prefs: UserPreferences): P
     workRhythm: prefs.workRhythm,
     encouragementStyle: prefs.encouragementStyle,
     dailyCheckInEnabled: prefs.dailyCheckInEnabled,
+    softStartEnabled: prefs.softStartEnabled,
+    transitionBridgeEnabled: prefs.transitionBridgeEnabled,
     updatedAt: now(),
   }, { merge: true });
 }

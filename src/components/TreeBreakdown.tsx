@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type { TaskStep } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { usePersonalizationStore } from '../store/usePersonalizationStore';
-import { Clock, ChevronDown, Loader2, GitBranchPlus, Check } from 'lucide-react';
+import { Clock, ChevronDown, Loader2, GitBranchPlus, Check, Trash2 } from 'lucide-react';
 
 const T_ROAD = 300;
 const T_DOT = 180;
@@ -121,6 +121,10 @@ export function TreeBreakdown({ goalTitle, steps }: TreeBreakdownProps) {
 
   useEffect(() => {
     if (skip || !mounted) return;
+    // Reveal the tree quickly regardless of size: cap the whole stagger to
+    // ~1.5s so large trees animate fast (and don't sit invisible at
+    // opacity-0 for many seconds).
+    const stepDelay = steps.length > 8 ? Math.max(60, Math.floor(1500 / steps.length)) : T_STEP;
     let idx = 0;
     let timer: ReturnType<typeof setTimeout>;
     let raf: number;
@@ -130,7 +134,7 @@ export function TreeBreakdown({ goalTitle, steps }: TreeBreakdownProps) {
       timer = setTimeout(() => {
         idx++;
         raf = requestAnimationFrame(tick);
-      }, T_STEP);
+      }, stepDelay);
     }
     raf = requestAnimationFrame(tick);
     return () => {
@@ -311,6 +315,7 @@ function RoadmapStep({
   const [justCompleted, setJustCompleted] = useState(false);
   const prevStatusRef = useRef(step.status);
   const drillDown = useAppStore((s) => s.drillDownStep);
+  const deleteStep = useAppStore((s) => s.deleteStep);
 
   const hasKids = (step.children?.length ?? 0) > 0;
   const isLeaf = !hasKids && !step.isDrilling;
@@ -336,13 +341,15 @@ function RoadmapStep({
 
   useEffect(() => {
     if (!isExpanded || !hasKids || skip) { setChildAnim(-1); return; }
+    const kids = step.children ?? [];
+    const stepDelay = kids.length > 8 ? Math.max(60, Math.floor(1500 / kids.length)) : T_STEP;
     let ci = 0;
     let t: ReturnType<typeof setTimeout>;
     let r: number;
     function tick() {
-      if (ci >= step.children!.length) return;
+      if (ci >= kids.length) return;
       setChildAnim(ci);
-      t = setTimeout(() => { ci++; r = requestAnimationFrame(tick); }, T_STEP);
+      t = setTimeout(() => { ci++; r = requestAnimationFrame(tick); }, stepDelay);
     }
     r = requestAnimationFrame(tick);
     return () => { clearTimeout(t); cancelAnimationFrame(r); };
@@ -439,6 +446,19 @@ function RoadmapStep({
     <Loader2 size={depth === 0 ? 13 : 11} className="animate-spin" style={{ color: 'var(--color-theme-primary)' }} />
   ) : null;
 
+  const deleteBtn = (
+    <button
+      onClick={(e) => { e.stopPropagation(); deleteStep(step.id); }}
+      className="p-1 rounded-lg transition-colors cursor-pointer"
+      style={{ color: 'var(--color-text-muted)' }}
+      title="Delete this step"
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-warm-100, #FAE9DC)')}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+    >
+      <Trash2 size={depth === 0 ? 13 : 11} />
+    </button>
+  );
+
   const numberBadge = (
     <div
       className={`${numSize} rounded-full flex items-center justify-center font-semibold shrink-0`}
@@ -526,6 +546,7 @@ function RoadmapStep({
       {duration}
       {drillBtn}
       {chevron}
+      {deleteBtn}
       {spinner}
     </div>
   );

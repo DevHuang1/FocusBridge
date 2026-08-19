@@ -1,9 +1,62 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { AppState, TaskStep, FeedbackLevel, UserProfile, Goal, MoodEntry, MoodLevel, EnergyLevel, DistractionEntry, Screen, Project, RoadmapNode } from '../types';
+import { persist, type PersistStorage } from 'zustand/middleware';
+import type { AppState, TaskStep, FeedbackLevel, UserProfile, Goal, MoodEntry, MoodLevel, EnergyLevel, DistractionEntry, Screen, Project, RoadmapNode, SoftStartState, SoftStartAlternative, TransitionState, FocusPresetId, ParkedItem, ParkedStatus, InboxItem } from '../types';
 import { aiService } from '../lib/ai';
 import { trackActivity, getActiveUserId } from '../lib/activity';
 import { logAIFeedback } from '../lib/data';
+import { usePersonalizationStore } from './usePersonalizationStore';
+
+// Coalesce writes to localStorage: persist() writes synchronously on every
+// set(), which blocks rendering for large sessions. Batching on an animation
+// frame keeps clicks (e.g. Resume) responsive without losing data.
+type PersistedState = Pick<AppStore, 'currentSession' | 'sessionSteps' | 'profile' | 'goals' | 'projects' | 'milestones' | 'parkedItems' | 'inboxItems'>;
+
+function createThrottledStorage(): PersistStorage<PersistedState> {
+  let cache: PersistedState | null = null;
+  let version = 0;
+  let scheduled = false;
+
+  const persistToDisk = () => {
+    scheduled = false;
+    if (!cache) return;
+    const serialized = { state: cache, version };
+    try {
+      localStorage.setItem('focusbridge-storage', JSON.stringify(serialized));
+    } catch {}
+  };
+
+  const schedule = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => persistToDisk());
+  };
+
+  return {
+    getItem: () => {
+      try {
+        const raw = localStorage.getItem('focusbridge-storage');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        cache = parsed.state as PersistedState;
+        version = parsed.version;
+        return parsed;
+      } catch {
+        return null;
+      }
+    },
+    setItem: (_name, value) => {
+      cache = value.state as PersistedState;
+      version = value.version ?? 0;
+      schedule();
+    },
+    removeItem: () => {
+      cache = null;
+      try {
+        localStorage.removeItem('focusbridge-storage');
+      } catch {}
+    },
+  };
+}
 
 interface AppStore extends AppState {
   isBreakingDown: boolean;
@@ -11,6 +64,10 @@ interface AppStore extends AppState {
   sessionSteps: TaskStep[];
   projects: Project[];
   milestones: RoadmapNode[];
+  softStart: SoftStartState | null;
+  transition: TransitionState | null;
+  parkedItems: ParkedItem[];
+  inboxItems: InboxItem[];
 
   setScreen: (screen: Screen) => void;
   setGoalInput: (input: string) => void;
@@ -18,9 +75,19 @@ interface AppStore extends AppState {
   setMilestones: (milestones: RoadmapNode[]) => void;
   breakdownGoal: (goal: string) => Promise<void>;
   startStep: (index: number) => void;
+  beginSoftStart: (index: number) => void;
+  chooseSoftStartAction: (alternative: SoftStartAlternative) => void;
+  continueAfterSoftStart: () => void;
+  stopSoftStartWithCredit: () => void;
+  makeSoftStartSmaller: () => Promise<void>;
+  cancelSoftStart: () => void;
+  beginFocusFromTransition: (notes: { materials?: string; thoughts?: string; presetId?: FocusPresetId }) => void;
+  setTransitionPreset: (presetId: FocusPresetId) => void;
+  showAfterTransition: () => void;
+  finishAfterTransition: (choice: 'continue' | 'break' | 'switch' | 'stop', rememberNote?: string) => void;
+  cancelTransition: () => void;
   startFocusSession: () => void;
   completeStep: () => void;
-  navigateAfterStep: () => Promise<void>;
   skipStep: () => void;
   markStuck: () => Promise<void>;
   provideFeedback: (feedback: FeedbackLevel) => void;
@@ -28,12 +95,18 @@ interface AppStore extends AppState {
   makeStepEasier: () => void;
   updateStepTime: (stepId: string, minutes: number) => void;
   updateStepTitle: (stepId: string, title: string) => void;
+  deleteStep: (stepId: string) => void;
   drillDownStep: (stepId: string) => Promise<void>;
   dismissCheckIn: () => void;
   resetToHome: () => void;
   setSummary: (summary: string) => void;
   setMood: (mood: MoodLevel, energy: EnergyLevel) => void;
   logDistraction: (label: string) => void;
+  parkDistraction: (label: string, status?: ParkedStatus) => void;
+  unparkItem: (id: string) => void;
+  markParkedDone: (id: string) => void;
+  addInboxItem: (text: string) => void;
+  clearInboxItem: (id: string) => void;
   resumeSession: (goalId: string, sessionId: string) => void;
   deleteGoal: (goalId: string) => void;
 }
@@ -106,6 +179,10 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   distractionLog: [],
   projects: [],
   milestones: [],
+  softStart: null,
+  transition: null,
+  parkedItems: [],
+  inboxItems: [],
 
   setScreen: (screen) => set({ screen }),
   setGoalInput: (input) => set({ goalInput: input }),
@@ -218,9 +295,15 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     const steps = [...currentSession.steps];
     steps[index] = { ...steps[index], status: 'active' };
 
+    const prefs = usePersonalizationStore.getState().preferences;
+
     set({
       currentSession: { ...currentSession, steps, currentStepIndex: index },
-      screen: 'focus',
+      softStart: null,
+      transition: prefs.transitionBridgeEnabled
+        ? { phase: 'before', stepIndex: index }
+        : null,
+      screen: prefs.transitionBridgeEnabled ? 'transition' : 'focus',
     });
 
     trackActivity('task_started', {
@@ -238,13 +321,238 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     });
   },
 
+  beginSoftStart: (index: number) => {
+    const { currentSession } = get();
+    if (!currentSession) return;
+    const step = currentSession.steps[index];
+    if (!step) return;
+
+    const prefs = usePersonalizationStore.getState().preferences;
+    if (!prefs.softStartEnabled) {
+      get().startStep(index);
+      return;
+    }
+
+    set({
+      screen: 'soft_start',
+      softStart: {
+        stepIndex: index,
+        stepTitle: step.title,
+        alternatives: [],
+        chosenLabel: null,
+        starterMinutes: 2,
+        phase: 'question',
+      },
+    });
+
+    void aiService.generateSoftStartAlternatives(step.title).then((alternatives) => {
+      const { softStart } = get();
+      if (softStart && softStart.stepIndex === index) {
+        set({ softStart: { ...softStart, alternatives } });
+      }
+    });
+  },
+
+  chooseSoftStartAction: (alternative: SoftStartAlternative) => {
+    const { softStart } = get();
+    if (!softStart) return;
+    set({
+      softStart: {
+        ...softStart,
+        chosenLabel: alternative.label,
+        starterMinutes: alternative.minutes,
+        phase: 'starter',
+      },
+    });
+  },
+
+  continueAfterSoftStart: () => {
+    const { softStart } = get();
+    if (!softStart) return;
+    trackActivity('soft_start_completed', {
+      objectType: 'task_step',
+      properties: { outcome: 'continue', starterMinutes: softStart.starterMinutes },
+    });
+    get().startStep(softStart.stepIndex);
+  },
+
+  stopSoftStartWithCredit: () => {
+    const { softStart } = get();
+    if (!softStart) return;
+    trackActivity('soft_start_completed', {
+      objectType: 'task_step',
+      properties: { outcome: 'stop', starterMinutes: softStart.starterMinutes },
+    });
+    set({
+      softStart: null,
+      screen: 'dashboard',
+      checkInMessage: "You got started. That counts.",
+    });
+  },
+
+  makeSoftStartSmaller: async () => {
+    const { currentSession, softStart } = get();
+    if (!currentSession || !softStart) return;
+
+    const idx = softStart.stepIndex;
+    const step = currentSession.steps[idx];
+    if (!step) return;
+
+    const smallerTitle = await aiService.generateEasierAlternative(step.originalTitle ?? step.title).then((raw) => {
+      const parsed = aiService.extractJsonObject(raw);
+      if (parsed && parsed.title) return String(parsed.title);
+      return `Just a tiny bit of: ${(step.originalTitle ?? step.title).toLowerCase()}`;
+    }).catch(() => null);
+
+    const steps = [...currentSession.steps];
+    steps[idx] = {
+      ...steps[idx],
+      title: smallerTitle ?? step.title,
+      durationMinutes: Math.max(1, Math.round(step.durationMinutes * 0.5)),
+      originalTitle: step.originalTitle ?? step.title,
+    };
+
+    set({ currentSession: { ...currentSession, steps } });
+
+    const alternatives = await aiService.generateSoftStartAlternatives(steps[idx].title);
+    set({
+      softStart: {
+        ...softStart,
+        stepTitle: steps[idx].title,
+        alternatives,
+        chosenLabel: null,
+        starterMinutes: 2,
+        phase: 'question',
+      },
+    });
+  },
+
+  cancelSoftStart: () => {
+    set({ screen: 'work_tasks', softStart: null });
+  },
+
+  beginFocusFromTransition: (notes) => {
+    const { currentSession, transition } = get();
+    if (!currentSession || !transition) return;
+
+    const steps = [...currentSession.steps];
+    const step = steps[transition.stepIndex];
+    if (step) {
+      steps[transition.stepIndex] = {
+        ...step,
+        notes: notes.materials?.trim() ? notes.materials.trim() : step.notes,
+      };
+    }
+
+    const transitionNotes = {
+      ...(currentSession.transitionNotes ?? {}),
+      materials: notes.materials?.trim(),
+      thoughts: notes.thoughts?.trim(),
+    };
+
+    set({
+      currentSession: {
+        ...currentSession,
+        steps,
+        transitionNotes: notes.materials?.trim() || notes.thoughts?.trim()
+          ? transitionNotes
+          : currentSession.transitionNotes,
+      },
+      transition: { ...transition, presetId: notes.presetId },
+      screen: 'focus',
+    });
+
+    trackActivity('transition_bridge_completed', {
+      objectType: 'task_step',
+      objectId: step?.id,
+      properties: { phase: 'before', choice: 'begin' },
+    });
+  },
+
+  setTransitionPreset: (presetId) => {
+    const { transition } = get();
+    if (!transition) return;
+    set({ transition: { ...transition, presetId } });
+  },
+
+  showAfterTransition: () => {
+    const { currentSession } = get();
+    if (!currentSession) return;
+
+    const allFlat = flattenSteps(currentSession.steps);
+    const completedCount = allFlat.filter((s) => s.status === 'completed').length;
+    const allDone = completedCount === allFlat.length;
+    const completedStep = allFlat.filter((s) => s.status === 'completed').pop();
+
+    set({
+      screen: 'transition',
+      transition: {
+        phase: 'after',
+        stepIndex: currentSession.currentStepIndex,
+        completedTitle: completedStep?.title,
+        remainingCount: allFlat.length - completedCount,
+        allDone,
+      },
+    });
+  },
+
+  finishAfterTransition: (choice, rememberNote) => {
+    const { currentSession, transition } = get();
+    if (!currentSession || !transition) return;
+
+    const cleanNote = rememberNote?.trim();
+
+    set({
+      currentSession: cleanNote
+        ? {
+            ...currentSession,
+            transitionNotes: {
+              ...(currentSession.transitionNotes ?? {}),
+              rememberForNextTime: cleanNote,
+            },
+          }
+        : currentSession,
+      transition: null,
+    });
+
+    trackActivity('transition_bridge_completed', {
+      properties: { phase: 'after', choice },
+    });
+
+    if (choice === 'continue') {
+      const nextPending = currentSession.steps.findIndex((s) => s.status === 'pending');
+      if (nextPending >= 0) {
+        get().beginSoftStart(nextPending);
+      } else {
+        set({ screen: 'reflection' });
+      }
+    } else if (choice === 'switch') {
+      set({ screen: 'work_tasks' });
+    } else {
+      set({ screen: 'dashboard', checkInMessage: aiService.getRandomEncouragement() });
+    }
+  },
+
+  cancelTransition: () => {
+    const { currentSession, transition } = get();
+    if (!currentSession || !transition) return;
+
+    const steps = [...currentSession.steps];
+    const step = steps[transition.stepIndex];
+    if (step && step.status === 'active') {
+      steps[transition.stepIndex] = { ...step, status: 'pending' };
+    }
+
+    set({ currentSession: { ...currentSession, steps }, transition: null, screen: 'dashboard' });
+  },
+
   startFocusSession: () => {
     const { currentSession } = get();
     if (!currentSession) return;
 
     const firstPending = findNextPendingIndex(currentSession.steps);
     if (firstPending >= 0) {
-      get().startStep(firstPending);
+      get().beginSoftStart(firstPending);
     }
   },
 
@@ -284,21 +592,6 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     });
     if (allDone) {
       trackActivity('focus_session_completed', {});
-    }
-  },
-
-  navigateAfterStep: async () => {
-    const { currentSession } = get();
-    if (!currentSession) return;
-
-    const allFlat = flattenSteps(currentSession.steps);
-    const completedCount = allFlat.filter(s => s.status === 'completed').length;
-    const allDone = completedCount === allFlat.length;
-
-    if (allDone) {
-      set({ screen: 'reflection' });
-    } else {
-      set({ screen: 'dashboard', checkInMessage: aiService.getRandomEncouragement() });
     }
   },
 
@@ -534,6 +827,38 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     trackActivity('task_updated', { objectType: 'task_step', objectId: stepId, properties: { field: 'title' } });
   },
 
+  deleteStep: (stepId: string) => {
+    const { currentSession } = get();
+    if (!currentSession) return;
+
+    function removeById(steps: TaskStep[], id: string): TaskStep[] {
+      return steps
+        .filter((s) => s.id !== id)
+        .map((s) => (s.children ? { ...s, children: removeById(s.children, id) } : s));
+    }
+
+    const steps = removeById(currentSession.steps, stepId);
+    const stillContains = steps.some((s) => s.id === stepId || (s.children && s.children.some((c) => c.id === stepId)));
+
+    let currentStepIndex = currentSession.currentStepIndex;
+    if (currentSession.steps[currentStepIndex]?.id === stepId || stillContains) {
+      const nextPending = steps.findIndex((s) => s.status === 'pending');
+      currentStepIndex = nextPending >= 0 ? nextPending : 0;
+    }
+
+    set({
+      currentSession: {
+        ...currentSession,
+        steps,
+        currentStepIndex: Math.min(currentStepIndex, Math.max(0, steps.length - 1)),
+        completedAt: steps.length === 0 ? new Date().toISOString() : currentSession.completedAt,
+      },
+      sessionSteps: steps,
+    });
+
+    trackActivity('task_archived', { objectType: 'task_step', objectId: stepId });
+  },
+
   drillDownStep: async (stepId: string) => {
     const { currentSession } = get();
     if (!currentSession) return;
@@ -626,6 +951,48 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     });
   },
 
+  parkDistraction: (label: string, status: ParkedStatus = 'parked') => {
+    const item: ParkedItem = {
+      id: `park-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      label,
+      timestamp: new Date().toISOString(),
+      status,
+    };
+    set({ parkedItems: [item, ...get().parkedItems] });
+    trackActivity('task_created', { objectType: 'parked_item', objectId: item.id, properties: { label, status } });
+  },
+
+  unparkItem: (id: string) => {
+    set({ parkedItems: get().parkedItems.filter((p) => p.id !== id) });
+    trackActivity('task_archived', { objectType: 'parked_item', objectId: id });
+  },
+
+  markParkedDone: (id: string) => {
+    set({
+      parkedItems: get().parkedItems.map((p) => (p.id === id ? { ...p, status: 'done' as const } : p)),
+    });
+    trackActivity('task_completed', { objectType: 'parked_item', objectId: id });
+  },
+
+  addInboxItem: (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    const item: InboxItem = {
+      id: `inbox-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      text: trimmed,
+      timestamp: new Date().toISOString(),
+      status: 'open',
+    };
+    set({ inboxItems: [item, ...get().inboxItems] });
+    trackActivity('task_created', { objectType: 'inbox_item', objectId: item.id, properties: { text: trimmed } });
+  },
+
+  clearInboxItem: (id: string) => {
+    set({ inboxItems: get().inboxItems.filter((i) => i.id !== id) });
+    trackActivity('task_archived', { objectType: 'inbox_item', objectId: id });
+  },
+
   resumeSession: (goalId: string, sessionId: string) => {
     const { goals } = get();
     const goal = goals.find(g => g.id === goalId);
@@ -651,6 +1018,10 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   }),
 }), {
   name: 'focusbridge-storage',
+  // Persist writes are throttled: every `set` currently writes the whole
+  // state synchronously, which blocks the UI for large trees (deep drilling,
+  // many steps). Deferring to a microtask-ish frame keeps clicks snappy.
+  storage: createThrottledStorage(),
   partialize: (state) => ({
     currentSession: state.currentSession,
     sessionSteps: state.sessionSteps,
@@ -658,5 +1029,26 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     goals: state.goals,
     projects: state.projects,
     milestones: state.milestones,
+    parkedItems: state.parkedItems,
+    inboxItems: state.inboxItems,
   }),
 }));
+
+// Keep the goals list (which powers "Check previous tasks" and Resume) in
+// sync with the live session. Otherwise the tasks tree loses drilled-down
+// sub-steps and progress once the user leaves the session.
+useAppStore.subscribe((state, prev) => {
+  const session = state.currentSession;
+  if (!session || session === prev.currentSession) return;
+
+  const goals = state.goals.map((goal) => {
+    const idx = goal.sessions.findIndex((s) => s.id === session.id);
+    if (idx < 0) return goal;
+    const sessions = [...goal.sessions];
+    sessions[idx] = session;
+    return { ...goal, sessions };
+  });
+
+  if (goals.length !== state.goals.length) return;
+  useAppStore.setState({ goals });
+});

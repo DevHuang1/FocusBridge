@@ -26,7 +26,6 @@ const AuthContext = createContext<AuthState | null>(null);
 
 function onSignedIn(user: User): void {
   setActiveUserId(user.uid);
-  usePersonalizationStore.getState().setPendingCheckIn(true);
   trackActivity('user_login', { screen: 'auth' });
 }
 
@@ -48,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback(async (email: string, password: string) => {
     try {
       await createUserWithEmailAndPassword(getAuthInstance(), email, password);
+      usePersonalizationStore.getState().setPendingCheckIn(true);
       return {};
     } catch (error: any) {
       return { error: error?.message ?? 'Sign up failed' };
@@ -57,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     try {
       await signInWithEmailAndPassword(getAuthInstance(), email, password);
+      usePersonalizationStore.getState().setPendingCheckIn(true);
       return {};
     } catch (error: any) {
       return { error: error?.message ?? 'Sign in failed' };
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInAsDemo = useCallback(async () => {
     try {
       await signInWithEmailAndPassword(getAuthInstance(), DEMO_EMAIL, DEMO_PASSWORD);
+      usePersonalizationStore.getState().setPendingCheckIn(true);
       return {};
     } catch (error: any) {
       return { error: error?.message ?? 'Demo sign in failed' };

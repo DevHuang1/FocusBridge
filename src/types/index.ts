@@ -18,6 +18,61 @@ export interface DistractionEntry {
   timestamp: string;
 }
 
+export type ParkedStatus = 'parked' | 'later_today' | 'done';
+
+export interface ParkedItem {
+  id: string;
+  label: string;
+  timestamp: string;
+  status: ParkedStatus;
+}
+
+export interface InboxItem {
+  id: string;
+  text: string;
+  timestamp: string;
+  status: 'open' | 'done';
+}
+
+// ─── Soft-Start Ritual ───────────────────────────────────────────
+export type SoftStartType = 'open' | 'prepare' | 'touch';
+
+export interface SoftStartAlternative {
+  type: SoftStartType;
+  label: string;
+  minutes: number;
+}
+
+export type SoftStartPhase = 'question' | 'starter' | 'result';
+
+export interface SoftStartState {
+  stepIndex: number;
+  stepTitle: string;
+  alternatives: SoftStartAlternative[];
+  chosenLabel: string | null;
+  starterMinutes: number;
+  phase: SoftStartPhase;
+}
+
+export type FocusPresetId = 'start_2' | 'starter_5' | 'sprint_15' | 'pomodoro_25_5' | 'flexible' | 'until_done';
+
+export interface FocusPreset {
+  id: FocusPresetId;
+  label: string;
+  desc: string;
+  minutes: number;
+  mode: 'countdown' | 'countup';
+}
+
+export const FOCUS_PRESETS: FocusPreset[] = [
+  { id: 'start_2', label: '2-min start', desc: 'For task resistance', minutes: 2, mode: 'countdown' },
+  { id: 'starter_5', label: '5-min starter', desc: 'Light activation', minutes: 5, mode: 'countdown' },
+  { id: 'sprint_15', label: '15-min sprint', desc: 'A manageable block', minutes: 15, mode: 'countdown' },
+  { id: 'pomodoro_25_5', label: '25/5 cycle', desc: 'Classic timed block', minutes: 25, mode: 'countdown' },
+  { id: 'flexible', label: 'Flexible', desc: 'No fixed endpoint', minutes: 0, mode: 'countup' },
+  { id: 'until_done', label: 'Until done', desc: 'No countdown', minutes: 0, mode: 'countup' },
+];
+
 // ─── Task Steps (Work Tasks tree) ─────────────────────────────────
 export interface TaskStep {
   id: string;
@@ -39,6 +94,17 @@ export interface StepGroup {
   steps: TaskStep[];
 }
 
+export type TransitionPhase = 'before' | 'after';
+
+export interface TransitionState {
+  phase: TransitionPhase;
+  stepIndex: number;
+  presetId?: FocusPresetId;
+  completedTitle?: string;
+  remainingCount?: number;
+  allDone?: boolean;
+}
+
 // ─── Focus Session ────────────────────────────────────────────────
 export interface FocusSession {
   id: string;
@@ -52,6 +118,11 @@ export interface FocusSession {
   summary?: string;
   mood?: MoodEntry;
   distractions: DistractionEntry[];
+  transitionNotes?: {
+    materials?: string;
+    thoughts?: string;
+    rememberForNextTime?: string;
+  };
 }
 
 // ─── Goal (legacy, kept for migration) ────────────────────────────
@@ -97,6 +168,8 @@ export interface UserPreferences {
   workRhythm: WorkRhythm;
   encouragementStyle: EncouragementStyle;
   dailyCheckInEnabled: boolean;
+  softStartEnabled: boolean;
+  transitionBridgeEnabled: boolean;
 }
 
 export const defaultPreferences: UserPreferences = {
@@ -111,6 +184,8 @@ export const defaultPreferences: UserPreferences = {
   workRhythm: 'flexible',
   encouragementStyle: 'neutral',
   dailyCheckInEnabled: true,
+  softStartEnabled: true,
+  transitionBridgeEnabled: true,
 };
 
 // ─── Daily Check-In ───────────────────────────────────────────────
@@ -272,6 +347,9 @@ export type ActivityEventName =
   | 'focus_session_resumed'
   | 'focus_session_completed'
   | 'focus_session_abandoned'
+  | 'focus_preset_selected'
+  | 'soft_start_completed'
+  | 'transition_bridge_completed'
   | 'preference_changed'
   | 'daily_check_in_completed'
   | 'daily_check_in_skipped'
@@ -311,7 +389,7 @@ export interface UserActivityEvent {
   timezone?: string;
   source: 'web' | 'mobile' | 'server';
   screen?: string;
-  objectType?: 'task' | 'task_step' | 'project' | 'roadmap_node' | 'focus_session' | 'preference' | 'ai_request';
+  objectType?: 'task' | 'task_step' | 'project' | 'roadmap_node' | 'focus_session' | 'preference' | 'ai_request' | 'parked_item' | 'inbox_item';
   objectId?: string;
   properties: Record<string, string | number | boolean | null>;
   sensitivity: ActivitySensitivity;
@@ -497,6 +575,7 @@ export type Screen =
   | 'home'
   | 'breakdown'
   | 'focus'
+  | 'soft_start'
   | 'reflection'
   | 'dashboard'
   | 'mood'
@@ -505,7 +584,8 @@ export type Screen =
   | 'work_tasks'
   | 'planning'
   | 'settings'
-  | 'roadmap';
+  | 'roadmap'
+  | 'transition';
 
 export type WorkspaceMode = 'work_tasks' | 'planning';
 

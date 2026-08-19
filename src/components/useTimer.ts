@@ -1,42 +1,45 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export function useTimer(initialMinutes: number) {
+export function useTimer(initialMinutes: number, mode: 'countdown' | 'countup' = 'countdown') {
   const totalSeconds = initialMinutes * 60;
-  const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
+  const [secondsLeft, setSecondsLeft] = useState(mode === 'countdown' ? totalSeconds : 0);
   const [isRunning, setIsRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    setSecondsLeft(totalSeconds);
+    setSecondsLeft(mode === 'countdown' ? totalSeconds : 0);
     setElapsed(0);
-  }, [totalSeconds]);
+    setIsRunning(false);
+  }, [totalSeconds, mode]);
 
   useEffect(() => {
-    if (!isRunning || secondsLeft <= 0) return;
+    if (!isRunning) return;
 
     const interval = setInterval(() => {
-      setSecondsLeft((s) => {
-        if (s <= 1) {
-          setIsRunning(false);
-          return 0;
-        }
-        return s - 1;
-      });
       setElapsed((e) => e + 1);
+      if (mode === 'countdown') {
+        setSecondsLeft((s) => {
+          if (s <= 1) {
+            setIsRunning(false);
+            return 0;
+          }
+          return s - 1;
+        });
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isRunning, secondsLeft]);
+  }, [isRunning, mode]);
 
   const start = useCallback(() => setIsRunning(true), []);
   const pause = useCallback(() => setIsRunning(false), []);
   const reset = useCallback(() => {
-    setSecondsLeft(totalSeconds);
+    setSecondsLeft(mode === 'countdown' ? totalSeconds : 0);
     setElapsed(0);
     setIsRunning(false);
-  }, [totalSeconds]);
+  }, [totalSeconds, mode]);
 
-  const progress = totalSeconds > 0 ? elapsed / totalSeconds : 0;
+  const progress = mode === 'countdown' && totalSeconds > 0 ? elapsed / totalSeconds : 0;
 
   const formatTime = (s: number) => {
     const mins = Math.floor(s / 60);
@@ -51,9 +54,9 @@ export function useTimer(initialMinutes: number) {
     pause,
     reset,
     progress,
-    formatted: formatTime(secondsLeft),
+    formatted: formatTime(mode === 'countdown' ? secondsLeft : elapsed),
     elapsedFormatted: formatTime(elapsed),
     elapsedSeconds: elapsed,
-    isComplete: secondsLeft === 0 && elapsed > 0,
+    isComplete: mode === 'countdown' && secondsLeft === 0 && elapsed > 0,
   };
 }

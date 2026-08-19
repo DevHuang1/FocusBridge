@@ -1,4 +1,4 @@
-import type { TaskStep, StepGroup, UserProfile, AIContextEnvelope } from "../types";
+import type { TaskStep, StepGroup, UserProfile, AIContextEnvelope, SoftStartAlternative } from "../types";
 import { formatEnvelopeForLLM } from './contextEngine';
 
 // Provider config. OpenRouter is the default/priority. Featherless still
@@ -430,6 +430,48 @@ Be brief. Output just the single word.`,
   }
 }
 
+export async function generateSoftStartAlternatives(stepTitle: string): Promise<SoftStartAlternative[]> {
+  try {
+    const raw = await chatCompletion(
+      `${FOCUSBRIDGE_SYSTEM}
+
+The user feels stuck starting a task. Offer three tiny ways to begin moving.
+Output ONLY a raw JSON array. No explanation, no markdown.
+
+Each object has:
+- "type": one of "open", "prepare", or "touch"
+- "label": a short, concrete action (5-12 words) that starts this specific task
+- "minutes": 2 or 5 (2 for open/prepare, 5 for touch)
+
+The three options must cover these approaches:
+1. "open" — open the relevant thing (document, file, app)
+2. "prepare" — put the materials in front of you
+3. "touch" — do one tiny rough bit of the actual task
+
+Use the exact task title in the wording. Keep language gentle and concrete.`,
+      `Task: ${stepTitle}`,
+    );
+    const parsed = extractJsonArray(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const alternatives: SoftStartAlternative[] = [];
+      for (const item of parsed) {
+        const type = item?.type === 'open' || item?.type === 'prepare' || item?.type === 'touch' ? item.type : 'open';
+        if (item?.label) {
+          alternatives.push({ type, label: String(item.label).slice(0, 120), minutes: item.minutes === 5 ? 5 : 2 });
+        }
+      }
+      if (alternatives.length >= 3) return alternatives;
+    }
+  } catch (error) {
+    console.error('AI soft-start alternatives failed:', error);
+  }
+  return [
+    { type: 'open', label: `Open: ${stepTitle}`, minutes: 2 },
+    { type: 'prepare', label: `Get the materials ready for ${stepTitle}`, minutes: 2 },
+    { type: 'touch', label: `Write one rough first line for ${stepTitle}`, minutes: 5 },
+  ];
+}
+
 function generateSmallerStep(currentStep: TaskStep): TaskStep {
   const newDuration = Math.max(1, Math.round(currentStep.durationMinutes * 0.4));
   return {
@@ -458,5 +500,6 @@ export const aiService = {
   generateMilestones,
   generateTasksFromMilestone,
   generateStepBreakdown,
+  generateSoftStartAlternatives,
   classifyTask,
 };

@@ -9,6 +9,8 @@ import { CheckInFlow } from './components/CheckInFlow';
 import { HomeScreen } from './screens/HomeScreen';
 import { BreakdownScreen } from './screens/BreakdownScreen';
 import { FocusScreen } from './screens/FocusScreen';
+import { SoftStartScreen } from './screens/SoftStartScreen';
+import { TransitionScreen } from './screens/TransitionScreen';
 import { ReflectionScreen } from './screens/ReflectionScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 import { MoodScreen } from './screens/MoodScreen';
@@ -80,6 +82,8 @@ function AppShell() {
       {screen === 'mood' && <MoodScreen />}
       {screen === 'breakdown' && <BreakdownScreen />}
       {screen === 'focus' && <FocusScreen />}
+      {screen === 'soft_start' && <SoftStartScreen />}
+      {screen === 'transition' && <TransitionScreen />}
       {screen === 'reflection' && <ReflectionScreen />}
       {screen === 'dashboard' && <DashboardScreen />}
       {screen === 'settings' && <SettingsScreen />}

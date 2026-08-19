@@ -8,7 +8,7 @@ import { useState } from 'react';
 import type { StepGroup } from '../types';
 
 export function BreakdownScreen() {
-  const { currentSession, startStep, setScreen, isBreakingDown, breakdownText, breakdownGoal, goalInput, updateStepTime, updateStepTitle } = useAppStore();
+  const { currentSession, beginSoftStart, setScreen, isBreakingDown, breakdownText, breakdownGoal, goalInput, updateStepTime, updateStepTitle } = useAppStore();
   const [editingStep, setEditingStep] = useState<string | null>(null);
 
   if (!currentSession && !isBreakingDown) {
@@ -89,7 +89,7 @@ export function BreakdownScreen() {
 
             <div className="space-y-3" style={{ animationDelay: '600ms' }}>
               {firstPendingIdx >= 0 && (
-                <Button onClick={() => startStep(firstPendingIdx)} size="lg" className="w-full">
+                <Button onClick={() => beginSoftStart(firstPendingIdx)} size="lg" className="w-full">
                   Start first step — {currentSession.steps[firstPendingIdx].durationMinutes} min<ArrowRight size={18} />
                 </Button>
               )}

@@ -48,6 +48,9 @@ const EVENT_SPECS: Record<ActivityEventName, EventSpec> = {
   focus_session_resumed: { sensitivity: 'standard', category: 'interactionHistory', purpose: 'session_support', allowedProperties: [], aiEligible: false, maxAgeDays: 90 },
   focus_session_completed: { sensitivity: 'standard', category: 'interactionHistory', purpose: 'session_support', allowedProperties: ['durationSeconds'], aiEligible: true, maxAgeDays: 90 },
   focus_session_abandoned: { sensitivity: 'standard', category: 'interactionHistory', purpose: 'session_support', allowedProperties: ['elapsedSeconds'], aiEligible: false, maxAgeDays: 90 },
+  focus_preset_selected: { sensitivity: 'standard', category: 'aiPersonalization', purpose: 'session_support', allowedProperties: ['preset', 'minutes', 'mode'], aiEligible: true, maxAgeDays: 90 },
+  soft_start_completed: { sensitivity: 'standard', category: 'aiPersonalization', purpose: 'session_support', allowedProperties: ['outcome', 'starterMinutes'], aiEligible: true, maxAgeDays: 90 },
+  transition_bridge_completed: { sensitivity: 'standard', category: 'aiPersonalization', purpose: 'session_support', allowedProperties: ['phase', 'choice'], aiEligible: true, maxAgeDays: 90 },
 
   preference_changed: { sensitivity: 'standard', category: 'aiPersonalization', purpose: 'preference_support', allowedProperties: ['field', 'value'], aiEligible: true, maxAgeDays: 365 },
 
@@ -192,6 +195,10 @@ export async function flushQueue(): Promise<void> {
   const retained: UserActivityEvent[] = [];
 
   for (const event of queue) {
+    // Drop events from a previous sign-in or pre-auth state: they can never
+    // pass the Firestore rules (userId must match the caller's uid) and would
+    // otherwise fail and re-queue forever.
+    if (event.userId !== activeUserId) continue;
     if (!categoryAllowed(EVENT_SPECS[event.eventName].category)) continue;
     const ok = await insertActivityEvent(event);
     if (!ok) retained.push(event);

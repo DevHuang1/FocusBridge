@@ -36,9 +36,9 @@ export function HomeScreen() {
 
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-12 md:py-20">
         <div className="text-center mb-10 max-w-xl animate-fade-in">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-6" style={{ backgroundColor: 'var(--color-theme-surface)', color: 'var(--color-theme-primary)' }}>
-            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-theme-primary)' }} />
-            Focus Bridge
+          <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full text-sm font-medium mb-6" style={{ backgroundColor: 'var(--color-theme-surface)', color: 'var(--color-theme-primary)' }}>
+            <img src="/logo/logo-96.png" alt="" className="w-6 h-6 rounded-full" />
+            <span>Focus Bridge</span>
           </div>
           <h1 className="font-serif text-4xl md:text-5xl text-text-primary mb-4 leading-tight">{getGreeting()}.</h1>
           <p className="text-xl text-text-secondary">What's on your mind?</p>

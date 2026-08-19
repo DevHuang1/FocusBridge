@@ -1,18 +1,18 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { usePersonalizationStore } from '../store/usePersonalizationStore';
 import { useConsentStore } from '../store/useConsentStore';
+import { usePersonalizationStore } from '../store/usePersonalizationStore';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
-import { CheckInSummary, CheckInFlow } from '../components/CheckInFlow';
 import { ConsentCard } from '../components/ConsentCard';
 import { useToast } from '../components/Toast';
-import { Settings, LogOut, ArrowRight, History, ChevronRight, Play, CircleDot, Send } from 'lucide-react';
+import { CheckInSummary } from '../components/CheckInFlow';
+import { Settings, LogOut, ArrowRight, History, ChevronRight, Play, Send, Trash2, Inbox, Check, ExternalLink } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { streamBreakdown, extractJsonArray } from '../lib/ai';
 import { trackActivity } from '../lib/activity';
 import { assembleContextForBreakdown } from '../lib/context';
-import type { DailyCheckIn, TaskStep, StepGroup, AIContextEnvelope } from '../types';
+import type { TaskStep, StepGroup, AIContextEnvelope } from '../types';
 
 const thinkingPhrases = ['Thinking', 'Working on it', 'Breaking it down', 'Creating steps', 'Organizing'];
 
@@ -25,8 +25,10 @@ function countAllSteps(steps: { status: string; children?: any[] }[]): number {
 export function DashboardScreen() {
   const goals = useAppStore((s) => s.goals);
   const currentSession = useAppStore((s) => s.currentSession);
+  const parkedItems = useAppStore((s) => s.parkedItems);
+  const unparkItem = useAppStore((s) => s.unparkItem);
+  const markParkedDone = useAppStore((s) => s.markParkedDone);
   const setScreen = useAppStore((s) => s.setScreen);
-  const dailyCheckInEnabled = usePersonalizationStore((s) => s.preferences.dailyCheckInEnabled);
   const guidanceStyle = usePersonalizationStore((s) => s.preferences.guidanceStyle);
   const profile = useAppStore((s) => s.profile);
   const preferredTaskDuration = profile?.preferredTaskDuration;
@@ -38,7 +40,6 @@ export function DashboardScreen() {
   const consentDismissed = useConsentStore((s) => s.consentDismissed);
 
   const { toast } = useToast();
-  const [showCheckIn, setShowCheckIn] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamText, setStreamText] = useState('');
@@ -54,11 +55,6 @@ export function DashboardScreen() {
   useEffect(() => {
     return () => { if (streamIntervalRef.current) clearInterval(streamIntervalRef.current); };
   }, []);
-
-  const handleCheckInComplete = (checkIn: DailyCheckIn) => {
-    setTodayCheckIn(checkIn);
-    setShowCheckIn(false);
-  };
 
   const handleSubmit = async () => {
     const trimmed = chatInput.trim();
@@ -188,10 +184,6 @@ export function DashboardScreen() {
     }
   };
 
-  if (showCheckIn) {
-    return <CheckInFlow onComplete={handleCheckInComplete} onSkip={() => setShowCheckIn(false)} />;
-  }
-
   if (!hasConsented && !consentDismissed) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-5 py-8">
@@ -224,21 +216,11 @@ export function DashboardScreen() {
             <p className="text-text-secondary text-base">What would you like to work on?</p>
           </div>
 
-          {todayCheckIn ? (
+          {todayCheckIn && (
             <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
               <CheckInSummary checkIn={todayCheckIn} onClear={clearTodayCheckIn} />
             </div>
-          ) : dailyCheckInEnabled ? (
-            <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-              <button onClick={() => setShowCheckIn(true)} className="w-full p-4 rounded-[1.25rem] border-2 border-dashed border-cream-300/80 hover:border-cream-300 text-left transition-all cursor-pointer group">
-                <p className="text-sm font-medium text-text-primary mb-0.5 flex items-center gap-2">
-                  <CircleDot size={14} className="text-text-muted group-hover:text-text-secondary transition-colors" />
-                  How are you arriving today?
-                </p>
-                <p className="text-xs text-text-muted ml-[22px]">A quick check-in to set up your day</p>
-              </button>
-            </div>
-          ) : null}
+          )}
 
           {isStreaming && (
             <div className="mb-6 animate-fade-in-up">
@@ -325,10 +307,53 @@ export function DashboardScreen() {
                   </div>
                   <Button size="sm" onClick={() => {
                     const idx = currentSession.steps.findIndex((s) => s.status === 'pending');
-                    if (idx >= 0) useAppStore.getState().startStep(idx);
+                    if (idx >= 0) useAppStore.getState().beginSoftStart(idx);
                   }}>
                     Resume <ArrowRight size={14} />
                   </Button>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {parkedItems.length > 0 && !isStreaming && (
+            <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '350ms' }}>
+              <Card padding="sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <Inbox size={16} className="text-text-muted" />
+                  <h3 className="text-sm font-medium text-text-primary">Parking lot</h3>
+                  <p className="text-xs text-text-muted ml-auto">things to handle later</p>
+                </div>
+                <div className="space-y-1.5">
+                  {parkedItems.filter((p) => p.status !== 'done').map((item) => (
+                    <div key={item.id} className="flex items-center gap-2 py-1.5">
+                      <button
+                        onClick={() => markParkedDone(item.id)}
+                        title="Mark as done"
+                        className="w-5 h-5 rounded-md border border-cream-300 flex items-center justify-center text-transparent hover:text-sage-400 hover:border-sage-300 transition-colors cursor-pointer shrink-0"
+                      >
+                        <Check size={12} />
+                      </button>
+                      <span className="text-sm text-text-primary flex-1 min-w-0 truncate">{item.label}</span>
+                      {item.status === 'later_today' && (
+                        <span className="text-[10px] text-text-muted bg-cream-100 rounded-full px-2 py-0.5 shrink-0">today</span>
+                      )}
+                      <button
+                        onClick={() => { setChatInput(`I need to ${item.label.toLowerCase()}`); chatRef.current?.focus(); }}
+                        title="Turn into a task"
+                        className="p-1.5 rounded-lg text-text-muted hover:bg-cream-100 hover:text-text-primary transition-colors cursor-pointer shrink-0"
+                      >
+                        <ExternalLink size={13} />
+                      </button>
+                      <button
+                        onClick={() => unparkItem(item.id)}
+                        title="Remove"
+                        className="p-1.5 rounded-lg text-text-muted hover:bg-warm-100 hover:text-warm-500 transition-colors cursor-pointer shrink-0"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </Card>
             </div>
@@ -371,6 +396,13 @@ export function DashboardScreen() {
                                 Resume
                               </button>
                             )}
+                            <button
+                              onClick={() => useAppStore.getState().deleteGoal(goal.id)}
+                              title="Delete this task"
+                              className="p-1.5 rounded-lg text-text-muted hover:bg-warm-100 hover:text-warm-500 transition-colors cursor-pointer"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
                         </Card>
                       );

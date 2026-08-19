@@ -5,7 +5,7 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { AnimatedItem } from '../components/CalmMotion';
 import { PrivacySettings } from '../components/PrivacySettings';
-import { ChevronLeft, Palette, Zap, Layout, MessageSquare, Sparkles, Monitor, RotateCcw, Check } from 'lucide-react';
+import { ChevronLeft, Palette, Zap, Layout, MessageSquare, Sparkles, Monitor, RotateCcw, Check, DoorOpen, ArrowLeftRight } from 'lucide-react';
 import type { AnimationIntensity, ColorTheme, InterfaceDensity, GuidanceStyle, CelebrationLevel, ReducedMotionPref, AIAdaptation } from '../types';
 
 const colorThemeOptions: { value: ColorTheme; label: string; preview: string }[] = [
@@ -71,7 +71,8 @@ export function SettingsScreen() {
   const celebrationEffects = usePersonalizationStore((s) => s.preferences.celebrationEffects);
   const reducedMotion = usePersonalizationStore((s) => s.preferences.reducedMotion);
   const aiAdaptation = usePersonalizationStore((s) => s.preferences.aiAdaptation);
-  const dailyCheckInEnabled = usePersonalizationStore((s) => s.preferences.dailyCheckInEnabled);
+  const softStartEnabled = usePersonalizationStore((s) => s.preferences.softStartEnabled);
+  const transitionBridgeEnabled = usePersonalizationStore((s) => s.preferences.transitionBridgeEnabled);
   const setAnimationIntensity = usePersonalizationStore((s) => s.setAnimationIntensity);
   const setColorTheme = usePersonalizationStore((s) => s.setColorTheme);
   const setDensity = usePersonalizationStore((s) => s.setDensity);
@@ -79,7 +80,8 @@ export function SettingsScreen() {
   const setCelebrationEffects = usePersonalizationStore((s) => s.setCelebrationEffects);
   const setReducedMotion = usePersonalizationStore((s) => s.setReducedMotion);
   const setAIAdaptation = usePersonalizationStore((s) => s.setAIAdaptation);
-  const setDailyCheckInEnabled = usePersonalizationStore((s) => s.setDailyCheckInEnabled);
+  const setSoftStartEnabled = usePersonalizationStore((s) => s.setSoftStartEnabled);
+  const setTransitionBridgeEnabled = usePersonalizationStore((s) => s.setTransitionBridgeEnabled);
   const resetPreferences = usePersonalizationStore((s) => s.resetPreferences);
   const applyThemeToDOM = usePersonalizationStore((s) => s.applyThemeToDOM);
   const setScreen = useAppStore((s) => s.setScreen);
@@ -98,9 +100,12 @@ export function SettingsScreen() {
         </button>
 
         <AnimatedItem>
-          <div className="mb-10">
-            <h1 className="font-serif text-3xl text-text-primary mb-2">Personalize FocusBridge</h1>
-            <p className="text-text-secondary text-base">Make it feel like yours. Change anything anytime.</p>
+          <div className="mb-10 flex items-center gap-4">
+            <img src="/logo/logo-96.png" alt="Focus Bridge" className="w-14 h-14 rounded-2xl" />
+            <div>
+              <h1 className="font-serif text-3xl text-text-primary mb-2">Personalize FocusBridge</h1>
+              <p className="text-text-secondary text-base">Make it feel like yours. Change anything anytime.</p>
+            </div>
           </div>
         </AnimatedItem>
 
@@ -176,20 +181,49 @@ export function SettingsScreen() {
 
           <AnimatedItem index={8}>
             <Card className="h-full">
-              <div className="flex items-center justify-between">
-                <div><p className="font-medium text-text-primary">Daily check-in</p><p className="text-sm text-text-muted mt-0.5">Optional morning prompt</p></div>
-                <button onClick={() => setDailyCheckInEnabled(!dailyCheckInEnabled)} className={`relative w-12 h-7 rounded-full transition-colors cursor-pointer ${dailyCheckInEnabled ? 'bg-sage-500' : 'bg-cream-300'}`} role="switch" aria-checked={dailyCheckInEnabled}>
-                  <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-sm transition-transform ${dailyCheckInEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              <div className="flex items-center gap-2.5 mb-5"><DoorOpen size={18} style={{ color: 'var(--color-theme-primary)' }} /><h2 className="font-medium text-text-primary">Starting gently</h2></div>
+              <div className="flex items-center justify-between gap-3 p-3.5 rounded-[1.25rem] border-2 border-cream-200/70">
+                <div>
+                  <p className="text-sm font-medium text-text-primary">Soft-start ritual</p>
+                  <p className="text-xs text-text-muted">Ask for one tiny first move (2 or 5 min) before the full timer</p>
+                </div>
+                <button
+                  onClick={() => setSoftStartEnabled(!softStartEnabled)}
+                  role="switch"
+                  aria-checked={softStartEnabled}
+                  className={`relative w-12 h-7 rounded-full transition-colors cursor-pointer shrink-0 ${softStartEnabled ? 'bg-sage-500' : 'bg-cream-300'}`}
+                >
+                  <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-sm transition-transform ${softStartEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
               </div>
             </Card>
           </AnimatedItem>
 
-          <AnimatedItem index={9} className="md:col-span-2">
-            <PrivacySettings />
+          <AnimatedItem index={9}>
+            <Card className="h-full">
+              <div className="flex items-center gap-2.5 mb-5"><ArrowLeftRight size={18} style={{ color: 'var(--color-theme-primary)' }} /><h2 className="font-medium text-text-primary">Transitions</h2></div>
+              <div className="flex items-center justify-between gap-3 p-3.5 rounded-[1.25rem] border-2 border-cream-200/70">
+                <div>
+                  <p className="text-sm font-medium text-text-primary">Transition bridge</p>
+                  <p className="text-xs text-text-muted">Quiet prep before a session and a clear choice after it</p>
+                </div>
+                <button
+                  onClick={() => setTransitionBridgeEnabled(!transitionBridgeEnabled)}
+                  role="switch"
+                  aria-checked={transitionBridgeEnabled}
+                  className={`relative w-12 h-7 rounded-full transition-colors cursor-pointer shrink-0 ${transitionBridgeEnabled ? 'bg-sage-500' : 'bg-cream-300'}`}
+                >
+                  <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-sm transition-transform ${transitionBridgeEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            </Card>
           </AnimatedItem>
 
           <AnimatedItem index={10} className="md:col-span-2">
+            <PrivacySettings />
+          </AnimatedItem>
+
+          <AnimatedItem index={11} className="md:col-span-2">
             <div className="flex gap-3 pt-2">
               <Button onClick={handleSave} className="flex-1" size="lg">
                 <Check size={18} /> Apply changes

@@ -9,7 +9,7 @@ import { ChevronLeft, ArrowRight } from 'lucide-react';
 
 export function WorkTasksScreen() {
   const currentSession = useAppStore((s) => s.currentSession);
-  const startStep = useAppStore((s) => s.startStep);
+  const beginSoftStart = useAppStore((s) => s.beginSoftStart);
   const setScreen = useAppStore((s) => s.setScreen);
   const isBreakingDown = useAppStore((s) => s.isBreakingDown);
   const breakdownGoal = useAppStore((s) => s.breakdownGoal);
@@ -105,7 +105,7 @@ export function WorkTasksScreen() {
             <AnimatedItem index={2}>
               <div className="space-y-3">
                 {firstPendingIdx >= 0 && (
-                  <Button onClick={() => startStep(firstPendingIdx)} size="lg" className="w-full">
+                  <Button onClick={() => beginSoftStart(firstPendingIdx)} size="lg" className="w-full">
                     Start first step — {currentSession.steps[firstPendingIdx].durationMinutes} min <ArrowRight size={18} />
                   </Button>
                 )}
