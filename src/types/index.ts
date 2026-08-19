@@ -336,22 +336,6 @@ export interface ActivityEventDefinition {
   maxAgeDays: number;
 }
 
-export interface UserActivityEvent {
-  id: string;
-  userId: string;
-  sessionId?: string;
-  eventName: ActivityEventName;
-  occurredAt: string;
-  timezone?: string;
-  source: 'web' | 'mobile' | 'server';
-  screen?: string;
-  objectType?: 'task' | 'task_step' | 'project' | 'roadmap_node' | 'focus_session' | 'preference' | 'ai_request';
-  objectId?: string;
-  properties: Record<string, string | number | boolean | null>;
-  sensitivity: ActivitySensitivity;
-  consentContext: ConsentContext;
-}
-
 export interface AIPersonalizationProfile {
   preferredSessionMinutes?: number[];
   commonlyAcceptedGuidanceStyle?: 'next_step' | 'brief' | 'detailed';

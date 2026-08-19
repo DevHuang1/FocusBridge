@@ -15,6 +15,12 @@ import type { DailyCheckIn, TaskStep, StepGroup, AIContextEnvelope } from '../ty
 
 const thinkingPhrases = ['Thinking', 'Working on it', 'Breaking it down', 'Creating steps', 'Organizing'];
 
+function countAllSteps(steps: { status: string; children?: any[] }[]): number {
+  let n = 0;
+  for (const s of steps) { n++; if (s.children) n += countAllSteps(s.children); }
+  return n;
+}
+
 export function DashboardScreen() {
   const goals = useAppStore((s) => s.goals);
   const currentSession = useAppStore((s) => s.currentSession);
@@ -304,7 +310,7 @@ export function DashboardScreen() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-text-primary truncate">{currentSession.goalTitle}</p>
                     <p className="text-xs text-text-muted">
-                      {currentSession.steps.filter((s) => s.status === 'completed').length}/{currentSession.steps.length} steps done
+                      {countAllSteps(currentSession.steps.filter((s) => s.status === 'completed'))}/{countAllSteps(currentSession.steps)} steps done
                     </p>
                   </div>
                   <Button size="sm" onClick={() => {

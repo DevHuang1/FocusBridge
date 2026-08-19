@@ -59,7 +59,7 @@ export function FocusScreen() {
 }
 
 interface FocusContentProps {
-  step: { id: string; title: string; durationMinutes: number; status: string };
+  step: { id: string; title: string; durationMinutes: number; status: 'pending' | 'active' | 'completed' | 'skipped' | 'stuck' };
   onComplete: () => void;
   onStuck: () => void;
   onSkip: () => void;

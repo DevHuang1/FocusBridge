@@ -59,6 +59,35 @@ function simulateTyping(text: string, set: any): Promise<void> {
   });
 }
 
+// ─── Recursive step helpers ──────────────────────────────────────
+function mapStepById(steps: TaskStep[], id: string, fn: (s: TaskStep) => TaskStep): TaskStep[] {
+  return steps.map(s => {
+    if (s.id === id) return fn(s);
+    if (s.children) return { ...s, children: mapStepById(s.children, id, fn) };
+    return s;
+  });
+}
+
+function findStepById(steps: TaskStep[], id: string): TaskStep | undefined {
+  for (const s of steps) {
+    if (s.id === id) return s;
+    if (s.children) {
+      const found = findStepById(s.children, id);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+function flattenSteps(steps: TaskStep[]): TaskStep[] {
+  const result: TaskStep[] = [];
+  for (const s of steps) {
+    result.push(s);
+    if (s.children) result.push(...flattenSteps(s.children));
+  }
+  return result;
+}
+
 export const useAppStore = create<AppStore>()(persist((set, get) => ({
   screen: 'dashboard',
   goalInput: '',
@@ -229,13 +258,18 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     const idx = currentSession.currentStepIndex;
     steps[idx] = { ...steps[idx], status: 'completed' };
 
-    const completedCount = steps.filter(s => s.status === 'completed').length;
-    const allDone = completedCount === steps.length;
+    const allFlat = flattenSteps(steps);
+    const completedCount = allFlat.filter(s => s.status === 'completed').length;
+    const allDone = completedCount === allFlat.length;
+
+    const nextPending = steps.findIndex(s => s.status === 'pending');
+    const nextIdx = nextPending >= 0 ? nextPending : idx;
 
     set({
       currentSession: {
         ...currentSession,
         steps,
+        currentStepIndex: nextIdx,
         completedAt: allDone ? new Date().toISOString() : undefined,
       },
       profile: {
@@ -250,15 +284,18 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
       objectId: steps[idx].id,
       properties: { stepIndex: idx },
     });
-    trackActivity('focus_session_completed', {});
+    if (allDone) {
+      trackActivity('focus_session_completed', {});
+    }
   },
 
   navigateAfterStep: async () => {
     const { currentSession } = get();
     if (!currentSession) return;
 
-    const completedCount = currentSession.steps.filter(s => s.status === 'completed').length;
-    const allDone = completedCount === currentSession.steps.length;
+    const allFlat = flattenSteps(currentSession.steps);
+    const completedCount = allFlat.filter(s => s.status === 'completed').length;
+    const allDone = completedCount === allFlat.length;
 
     if (allDone) {
       set({ screen: 'reflection' });
@@ -475,9 +512,10 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     const { currentSession } = get();
     if (!currentSession) return;
 
-    const steps = currentSession.steps.map(s =>
-      s.id === stepId ? { ...s, durationMinutes: Math.max(1, minutes) } : s
-    );
+    const steps = mapStepById(currentSession.steps, stepId, s => ({
+      ...s,
+      durationMinutes: Math.max(1, minutes),
+    }));
 
     set({ currentSession: { ...currentSession, steps } });
     trackActivity('task_updated', { objectType: 'task_step', objectId: stepId, properties: { field: 'durationMinutes' } });
@@ -487,9 +525,10 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     const { currentSession } = get();
     if (!currentSession) return;
 
-    const steps = currentSession.steps.map(s =>
-      s.id === stepId ? { ...s, title } : s
-    );
+    const steps = mapStepById(currentSession.steps, stepId, s => ({
+      ...s,
+      title,
+    }));
 
     set({ currentSession: { ...currentSession, steps } });
     trackActivity('task_updated', { objectType: 'task_step', objectId: stepId, properties: { field: 'title' } });
@@ -614,6 +653,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   name: 'focusbridge-storage',
   partialize: (state) => ({
     currentSession: state.currentSession,
+    sessionSteps: state.sessionSteps,
     profile: state.profile,
     goals: state.goals,
   }),
