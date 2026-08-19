@@ -110,7 +110,7 @@ export function PlanningScreen() {
         <div className="relative">
           <div className="absolute left-[18px] top-0 bottom-0 w-0.5" style={{ backgroundColor: 'var(--color-theme-border)' }} />
           <div className="space-y-4">
-            {milestones.sort((a, b) => a.position - b.position).map((milestone, i) => {
+            {[...milestones].sort((a, b) => a.position - b.position).map((milestone, i) => {
               const isCompleted = milestone.status === 'completed';
               const isActive = milestone.status === 'in_progress';
               const isExpanded = selectedMilestone?.id === milestone.id;

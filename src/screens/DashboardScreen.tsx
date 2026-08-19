@@ -28,7 +28,8 @@ export function DashboardScreen() {
   const setScreen = useAppStore((s) => s.setScreen);
   const dailyCheckInEnabled = usePersonalizationStore((s) => s.preferences.dailyCheckInEnabled);
   const guidanceStyle = usePersonalizationStore((s) => s.preferences.guidanceStyle);
-  const preferredTaskDuration = usePersonalizationStore((s) => s.profile?.preferredTaskDuration);
+  const profile = useAppStore((s) => s.profile);
+  const preferredTaskDuration = profile?.preferredTaskDuration;
   const todayCheckIn = usePersonalizationStore((s) => s.todayCheckIn);
   const setTodayCheckIn = usePersonalizationStore((s) => s.setTodayCheckIn);
   const clearTodayCheckIn = usePersonalizationStore((s) => s.clearTodayCheckIn);
@@ -136,7 +137,8 @@ export function DashboardScreen() {
 
       const groups: StepGroup[] = [{ label: 'Getting started', emoji: '\u{1F331}', steps }];
 
-      const prev = useAppStore.getState().currentSession!;
+      const prev = useAppStore.getState().currentSession;
+      if (!prev) throw new Error('No active session');
       const newGoal = {
         id: `goal-${Date.now()}`,
         title: trimmed,
@@ -163,14 +165,16 @@ export function DashboardScreen() {
         { id: `step-${Date.now()}-1`, title: 'Read or review the first section', durationMinutes: 5, status: 'pending' },
         { id: `step-${Date.now()}-2`, title: 'Write down one key takeaway', durationMinutes: 3, status: 'pending' },
       ];
-      const prev = useAppStore.getState().currentSession!;
-      useAppStore.setState({
-        currentSession: { ...prev, steps: fallbackSteps, groups: [{ label: 'Getting started', emoji: '\u{1F331}', steps: fallbackSteps }] },
-        sessionSteps: fallbackSteps,
-        isBreakingDown: false,
-        breakdownText: '',
-        screen: 'work_tasks',
-      });
+      const prev = useAppStore.getState().currentSession;
+      if (prev) {
+        useAppStore.setState({
+          currentSession: { ...prev, steps: fallbackSteps, groups: [{ label: 'Getting started', emoji: '\u{1F331}', steps: fallbackSteps }] },
+          sessionSteps: fallbackSteps,
+          isBreakingDown: false,
+          breakdownText: '',
+          screen: 'work_tasks',
+        });
+      }
     }
 
     setIsStreaming(false);

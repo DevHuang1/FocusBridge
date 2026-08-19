@@ -52,6 +52,7 @@ export function MoodEnergyPicker({ onSelect: _onSelect }: { onSelect: (mood: Moo
           {moods.map((m, i) => (
             <button
               key={m.level}
+              onClick={() => _onSelect(m.level, 'medium')}
               className="flex flex-col items-center gap-1.5 p-3 rounded-2xl hover:bg-cream-200 transition-all cursor-pointer group hover:scale-105 active:scale-95 animate-fade-in"
               style={{ animationDelay: `${i * 50}ms` }}
               data-mood={m.level}
@@ -68,6 +69,7 @@ export function MoodEnergyPicker({ onSelect: _onSelect }: { onSelect: (mood: Moo
           {energies.map((e, i) => (
             <button
               key={e.level}
+              onClick={() => _onSelect('okay', e.level)}
               className="flex flex-col items-center gap-1.5 p-3 rounded-2xl hover:bg-cream-200 transition-all cursor-pointer group hover:scale-105 active:scale-95 animate-fade-in"
               style={{ animationDelay: `${250 + i * 50}ms` }}
               data-energy={e.level}

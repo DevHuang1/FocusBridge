@@ -9,7 +9,6 @@ export function useTimer(initialMinutes: number) {
   useEffect(() => {
     setSecondsLeft(totalSeconds);
     setElapsed(0);
-    setIsRunning(false);
   }, [totalSeconds]);
 
   useEffect(() => {

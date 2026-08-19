@@ -81,6 +81,17 @@ function flattenSteps(steps: TaskStep[]): TaskStep[] {
   return result;
 }
 
+function findNextPendingIndex(steps: TaskStep[]): number {
+  for (let i = 0; i < steps.length; i++) {
+    if (steps[i].status === 'pending') return i;
+    if (steps[i].children) {
+      const childIdx = findNextPendingIndex(steps[i].children!);
+      if (childIdx >= 0) return i;
+    }
+  }
+  return -1;
+}
+
 export const useAppStore = create<AppStore>()(persist((set, get) => ({
   screen: 'dashboard',
   goalInput: '',
@@ -168,24 +179,14 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
 
       await simulateTyping(rawResponse, set);
 
+      const prev = get().currentSession!;
       const newGoal: Goal = {
         id: `goal-${Date.now()}`,
         title: goal,
-        sessions: [{
-          id: `session-${Date.now()}`,
-          goalTitle: goal,
-          steps,
-          groups,
-          currentStepIndex: 0,
-          feedback: [],
-          startedAt: new Date().toISOString(),
-          distractions: [],
-        }],
+        sessions: [{ ...prev, steps, groups }],
         createdAt: new Date().toISOString(),
         archived: false,
       };
-
-      const prev = get().currentSession!;
       set({
         currentSession: { ...prev, steps, groups },
         sessionSteps: steps,
@@ -241,7 +242,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     const { currentSession } = get();
     if (!currentSession) return;
 
-    const firstPending = currentSession.steps.findIndex(s => s.status === 'pending');
+    const firstPending = findNextPendingIndex(currentSession.steps);
     if (firstPending >= 0) {
       get().startStep(firstPending);
     }
@@ -259,7 +260,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     const completedCount = allFlat.filter(s => s.status === 'completed').length;
     const allDone = completedCount === allFlat.length;
 
-    const nextPending = steps.findIndex(s => s.status === 'pending');
+    const nextPending = findNextPendingIndex(steps);
     const nextIdx = nextPending >= 0 ? nextPending : idx;
 
     set({
@@ -351,11 +352,12 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
         status: 'stuck',
       };
 
+      const newIdx = Math.min(currentSession.currentStepIndex + 1, steps.length - 1);
       set({
         currentSession: {
           ...currentSession,
           steps,
-          currentStepIndex: currentSession.currentStepIndex + 1,
+          currentStepIndex: newIdx,
         },
         checkInMessage: null,
       });
@@ -383,11 +385,12 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
         status: 'stuck',
       };
 
+      const newIdx = Math.min(get().currentSession!.currentStepIndex + 1, steps.length - 1);
       set({
         currentSession: {
           ...get().currentSession!,
           steps,
-          currentStepIndex: get().currentSession!.currentStepIndex + 1,
+          currentStepIndex: newIdx,
         },
         checkInMessage: null,
       });

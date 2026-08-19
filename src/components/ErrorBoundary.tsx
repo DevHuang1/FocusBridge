@@ -1,3 +1,4 @@
+import React from 'react';
 import { type ReactNode, type ErrorInfo } from 'react';
 import { Button } from './Button';
 
@@ -62,5 +63,3 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 }
 
-// ─── React import needed for class component ─────────────────────
-import React from 'react';

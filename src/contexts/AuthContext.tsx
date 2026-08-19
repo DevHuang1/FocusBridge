@@ -73,7 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await firebaseSignOut(getAuthInstance());
+    try {
+      await firebaseSignOut(getAuthInstance());
+    } catch (error) {
+      console.error('Sign out failed:', error);
+    }
   }, []);
 
   return (
