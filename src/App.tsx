@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAppStore } from './store/useAppStore';
 import { usePersonalizationStore } from './store/usePersonalizationStore';
 import { useConsentStore } from './store/useConsentStore';
@@ -15,6 +16,7 @@ import { AuthScreen } from './screens/AuthScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { WorkTasksScreen } from './screens/WorkTasksScreen';
 import { PlanningScreen } from './screens/PlanningScreen';
+import { LandingPage } from './pages/LandingPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -91,7 +93,13 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <ToastProvider>
-          <AppShell />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/app/*" element={<AppShell />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
         </ToastProvider>
       </AuthProvider>
     </ErrorBoundary>
