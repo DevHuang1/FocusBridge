@@ -28,6 +28,10 @@ dist-ssr
 
 .env
 /supabase
+/functions/lib
 
 # Demo user credentials + fetched activity data (never commit)
 DEMO_USER.md
+
+# Firebase service account keys (never commit)
+*serviceAccountKey*.json

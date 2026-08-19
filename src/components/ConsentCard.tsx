@@ -25,7 +25,7 @@ export function ConsentCard() {
   const [saving, setSaving] = useState(false);
 
   const persist = async () => {
-    const userId = getActiveUserId() ?? user?.id ?? null;
+    const userId = getActiveUserId() ?? user?.uid ?? null;
     if (userId) {
       try {
         await saveConsentStatus(userId, consent, true);
@@ -43,7 +43,7 @@ export function ConsentCard() {
 
   const handleSkip = async () => {
     setSaving(true);
-    const userId = getActiveUserId() ?? user?.id ?? null;
+    const userId = getActiveUserId() ?? user?.uid ?? null;
     if (userId) {
       try {
         await saveConsentStatus(userId, consent, true);

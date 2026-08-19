@@ -1,77 +1,74 @@
-// Fetches the demo user's activity events from Supabase and writes them
+// Fetches the demo user's activity events from Firestore and writes them
 // into DEMO_USER.md between the DEMO-ACTIVITY markers.
 //
 //   npm run demo:activity
 //
-// Uses the demo user's own credentials + anon key, so RLS only returns
-// the demo account's rows. Never requires (or touches) a service key.
+// Uses the Firebase Admin SDK with the service-account credentials in .env
+// (FIREBASE_SERVICE_ACCOUNT_PATH or GOOGLE_APPLICATION_CREDENTIALS).
 import 'dotenv/config';
-import { createClient } from '@supabase/supabase-js';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const MARKDOWN_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'DEMO_USER.md');
 const DEMO_EMAIL = process.env.DEMO_USER_EMAIL ?? 'demo@focusbridge.app';
-const DEMO_PASSWORD = process.env.DEMO_USER_PASSWORD ?? 'demo-pass-2026';
 
-const url = process.env.VITE_SUPABASE_URL;
-const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
-if (!url || !anonKey) {
-  console.error('Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY in .env');
-  process.exit(1);
+function loadAdmin() {
+  const path =
+    process.env.FIREBASE_SERVICE_ACCOUNT_PATH ??
+    process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (!path) {
+    console.error('Missing FIREBASE_SERVICE_ACCOUNT_PATH / GOOGLE_APPLICATION_CREDENTIALS in .env');
+    process.exit(1);
+  }
+  const abs = resolve(path);
+  const serviceAccount = JSON.parse(readFileSync(abs, 'utf8'));
+  if (!getApps().length) {
+    initializeApp({ credential: cert(serviceAccount) });
+  }
 }
 
 interface ActivityRow {
-  occurred_at: string;
-  event_name: string;
+  occurredAt: string;
+  eventName: string;
   screen: string | null;
   properties: Record<string, unknown> | null;
 }
 
 async function main() {
-  const supabase = createClient(url, anonKey);
+  loadAdmin();
+  const auth = getAuth();
+  const db = getFirestore();
 
-  const { data: auth, error: authError } = await supabase.auth.signInWithPassword({
-    email: DEMO_EMAIL,
-    password: DEMO_PASSWORD,
-  });
-  if (authError) {
-    console.error(`Sign-in failed for ${DEMO_EMAIL}: ${authError.message}`);
-    process.exit(1);
-  }
-  const userId = auth.user.id;
+  const user = await auth.getUserByEmail(DEMO_EMAIL);
+  const userId = user.uid;
 
-  const { data: events, error: evError } = await supabase
-    .from('user_activity_events')
-    .select('occurred_at, event_name, screen, properties')
-    .eq('user_id', userId)
-    .order('occurred_at', { ascending: false })
-    .limit(500);
-  if (evError) {
-    console.error(`Failed to fetch activity: ${evError.message}`);
-    process.exit(1);
-  }
+  const eventsSnap = await db
+    .collection('user_activity_events')
+    .where('userId', '==', userId)
+    .orderBy('occurredAt', 'desc')
+    .limit(500)
+    .get();
 
-  const { data: prefs } = await supabase
-    .from('activity_tracking_preferences')
-    .select('interaction_history, ai_personalization, daily_check_in_context, conversation_memory, technical_diagnostics, consent_version, has_consented')
-    .eq('user_id', userId)
-    .maybeSingle();
+  const prefsSnap = await db.collection('activity_tracking_preferences').doc(userId).get();
+  const prefs = prefsSnap.exists ? prefsSnap.data() : null;
 
-  const rows = (events ?? []) as ActivityRow[];
+  const rows = eventsSnap.docs.map((d) => d.data() as ActivityRow);
   const table = rows.length
     ? rows
         .map((e) => {
           const props = e.properties && Object.keys(e.properties).length ? JSON.stringify(e.properties) : '';
           const screen = e.screen ?? '';
-          return `| ${e.occurred_at} | ${e.event_name} | ${screen} | ${props} |`;
+          return `| ${e.occurredAt} | ${e.eventName} | ${screen} | ${props} |`;
         })
         .join('\n')
     : '| _no activity yet_ | | | |';
 
   const consentLine = prefs
-    ? `Consent: interactionHistory=${prefs.interaction_history}, aiPersonalization=${prefs.ai_personalization}, dailyCheckInContext=${prefs.daily_check_in_context}, conversationMemory=${prefs.conversation_memory}, technicalDiagnostics=${prefs.technical_diagnostics}, consentVersion=${prefs.consent_version}, hasConsented=${prefs.has_consented}`
+    ? `Consent: interactionHistory=${prefs.interactionHistory}, aiPersonalization=${prefs.aiPersonalization}, dailyCheckInContext=${prefs.dailyCheckInContext}, conversationMemory=${prefs.conversationMemory}, technicalDiagnostics=${prefs.technicalDiagnostics}, consentVersion=${prefs.consentVersion}, hasConsented=${prefs.hasConsented}`
     : 'Consent: not set yet';
 
   const section = `## Demo User Activity
@@ -105,4 +102,7 @@ ${table}`;
   console.log(`Wrote ${rows.length} events for ${DEMO_EMAIL} to ${MARKDOWN_PATH}`);
 }
 
-main();
+main().catch((e) => {
+  console.error('Failed:', e.message);
+  process.exit(1);
+});

@@ -1,22 +1,38 @@
 import type { TaskStep, StepGroup, UserProfile, AIContextEnvelope } from "../types";
 import { formatEnvelopeForLLM } from './contextEngine';
 
-// Provider config. Featherless is the default; OpenRouter works too by
-// setting VITE_AI_BASE_URL=https://openrouter.ai/api/v1 and using
-// VITE_OPENROUTER_API_KEY (or VITE_AI_API_KEY for any provider).
-const API_BASE = import.meta.env.VITE_AI_BASE_URL ?? 'https://api.featherless.ai/v1';
+// Provider config. OpenRouter is the default/priority. Featherless still
+// works by setting VITE_AI_BASE_URL=https://api.featherless.ai/v1 and using
+// VITE_FEATHERLESS_API_KEY (or VITE_AI_API_KEY for any provider).
+//
+// When VITE_FIREBASE_FUNCTIONS_URL is set, all AI calls are proxied through
+// the Firebase Cloud Function (functions/src/index.ts) so the API key stays
+// server-side. The function's /chat endpoint accepts the same payload this
+// module would send to the provider directly.
+const API_BASE = import.meta.env.VITE_AI_BASE_URL ?? 'https://openrouter.ai/api/v1';
+const FUNCTIONS_URL = import.meta.env.VITE_FIREBASE_FUNCTIONS_URL;
+const IS_OPENROUTER = API_BASE.includes('openrouter');
 const IS_FEATHERLESS = API_BASE.includes('featherless');
-// Override via VITE_FEATHERLESS_MODEL or VITE_AI_MODEL. Default is the
-// smallest/fastest Qwen3 that still produces solid short JSON answers.
-const MODEL = import.meta.env.VITE_FEATHERLESS_MODEL ?? import.meta.env.VITE_AI_MODEL ?? 'Qwen/Qwen3-1.7B';
+// Override via VITE_OPENROUTER_MODEL or VITE_AI_MODEL. Default is a
+// fast, non-thinking open model that produces solid short JSON answers.
+const MODEL = import.meta.env.VITE_OPENROUTER_MODEL ?? import.meta.env.VITE_AI_MODEL ?? 'qwen/qwen-2.5-7b-instruct';
 
 function resolveApiKey(): string | undefined {
   if (import.meta.env.VITE_AI_API_KEY) return import.meta.env.VITE_AI_API_KEY;
-  if (IS_FEATHERLESS) return import.meta.env.VITE_FEATHERLESS_API_KEY;
-  return import.meta.env.VITE_OPENROUTER_API_KEY;
+  if (IS_OPENROUTER) return import.meta.env.VITE_OPENROUTER_API_KEY;
+  return import.meta.env.VITE_FEATHERLESS_API_KEY;
+}
+
+function chatEndpoint(): string {
+  if (FUNCTIONS_URL) return `${FUNCTIONS_URL}/chat`;
+  return `${API_BASE}/chat/completions`;
 }
 
 function buildHeaders(): Record<string, string> {
+  if (FUNCTIONS_URL) {
+    // The Cloud Function holds the provider key; no client key is sent.
+    return { 'Content-Type': 'application/json' };
+  }
   const apiKey = resolveApiKey();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -30,10 +46,10 @@ function buildHeaders(): Record<string, string> {
   return headers;
 }
 
-// Qwen3 reasons (chain-of-thought) by default. Disabling thinking cuts
-// latency dramatically for short, structured answers like step lists.
-// Only Featherless accepts chat_template_kwargs; OpenRouter ignores it,
-// so pick a non-thinking model there (e.g. qwen/qwen-2.5-7b-instruct).
+// Qwen3 reasons (chain-of-thought) by default on Featherless. Disabling
+// thinking cuts latency dramatically for short, structured answers. OpenRouter
+// ignores chat_template_kwargs, so the default model there is a non-thinking
+// instruct model. Featherless defaults to Qwen3 with thinking disabled.
 const NON_THINKING_KWARGS = { enable_thinking: false };
 
 // Hard cap so a single response can never run away; steps are short JSON.
@@ -83,9 +99,9 @@ async function chatCompletion(
   opts: { maxTokens?: number; temperature?: number } = {},
 ): Promise<string> {
   const apiKey = resolveApiKey();
-  if (!apiKey) return '';
+  if (!apiKey && !FUNCTIONS_URL) return '';
 
-  const response = await fetch(`${API_BASE}/chat/completions`, {
+  const response = await fetch(chatEndpoint(), {
     method: 'POST',
     headers: buildHeaders(),
     body: JSON.stringify({
@@ -95,7 +111,7 @@ async function chatCompletion(
         { role: 'system', content: system },
         { role: 'user', content: prompt },
       ],
-      ...(IS_FEATHERLESS ? { chat_template_kwargs: NON_THINKING_KWARGS } : {}),
+      ...(IS_FEATHERLESS && !FUNCTIONS_URL ? { chat_template_kwargs: NON_THINKING_KWARGS } : {}),
       max_tokens: opts.maxTokens ?? MAX_OUTPUT_TOKENS,
       temperature: opts.temperature ?? SAMPLING.temperature,
       top_p: SAMPLING.top_p,
@@ -160,7 +176,7 @@ export async function streamBreakdown(
   envelope?: AIContextEnvelope,
 ): Promise<string> {
   const apiKey = resolveApiKey();
-  if (!apiKey) {
+  if (!apiKey && !FUNCTIONS_URL) {
     onStatus?.('Creating steps...');
     const result = await generateBreakdown(goal, {} as UserProfile, envelope);
     onToken(result);
@@ -184,14 +200,14 @@ RULES:
 Example output:
 [{"title":"Fill a pot with water and put it on the stove","durationMinutes":2},{"title":"Add salt and bring water to a boil","durationMinutes":5}]`;
 
-    const response = await fetch(`${API_BASE}/chat/completions`, {
+    const response = await fetch(chatEndpoint(), {
       method: 'POST',
       headers: buildHeaders(),
       body: JSON.stringify({
         model: MODEL,
         stream: true,
         messages: buildMessages(system, envelope, `Break down: ${goal}`),
-        ...(IS_FEATHERLESS ? { chat_template_kwargs: NON_THINKING_KWARGS } : {}),
+        ...(IS_FEATHERLESS && !FUNCTIONS_URL ? { chat_template_kwargs: NON_THINKING_KWARGS } : {}),
         max_tokens: MAX_OUTPUT_TOKENS,
         temperature: SAMPLING.temperature,
         top_p: SAMPLING.top_p,
@@ -360,6 +376,24 @@ Create 2-5 tasks that lead to the milestone outcome.`,
   }
 }
 
+async function generateStepBreakdown(stepTitle: string, goalTitle: string): Promise<string> {
+  try {
+    return await chatCompletion(
+      `${FOCUSBRIDGE_SYSTEM}
+
+The user is drilling down on a single step of a larger goal.
+Output ONLY a raw JSON array. No explanation, no markdown.
+
+Each object has "title" (string, action-oriented, 5-15 words) and "durationMinutes" (number, 1-5).
+Create 2-4 sub-steps that together complete the step, starting with the easiest one.`,
+      `Goal: ${goalTitle}\nDrill down this step: ${stepTitle}`,
+    );
+  } catch (error) {
+    console.error('AI step breakdown failed:', error);
+    return '';
+  }
+}
+
 async function classifyTask(input: string): Promise<string> {
   try {
     const text = await chatCompletion(
@@ -403,5 +437,6 @@ export const aiService = {
   generateSessionSummary,
   generateMilestones,
   generateTasksFromMilestone,
+  generateStepBreakdown,
   classifyTask,
 };

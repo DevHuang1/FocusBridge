@@ -4,13 +4,24 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 
 export function AuthScreen() {
-  const { signIn, signUp, signInAsTestUser } = useAuth();
+  const { signIn, signUp, signInAsDemo } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [sent, setSent] = useState(false);
+
+  const handleDemo = async () => {
+    setError(null);
+    setDemoLoading(true);
+    const result = await signInAsDemo();
+    if (result.error) {
+      setError(result.error);
+      setDemoLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,8 +112,8 @@ export function AuthScreen() {
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-cream-200" /></div>
             <div className="relative flex justify-center text-xs"><span className="bg-surface px-3 text-text-muted">or</span></div>
           </div>
-          <Button variant="ghost" onClick={signInAsTestUser} className="w-full">
-            Try without an account
+          <Button variant="ghost" onClick={handleDemo} className="w-full" disabled={demoLoading}>
+            {demoLoading ? 'Signing in...' : 'Try the demo account'}
           </Button>
         </div>
       </Card>

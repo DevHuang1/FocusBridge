@@ -1,0 +1,57 @@
+rules_version = '2';
+
+// FocusBridge Firestore security rules (RLS equivalent).
+// Every collection is scoped to the signed-in user's own UID. No public
+// reads or writes; no cross-user access. Docs store the owner as `userId`.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Per-user singleton docs (document id == user UID).
+    match /user_preferences/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /activity_tracking_preferences/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /ai_personalization_profiles/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Scoped collections: any document where userId field matches the caller.
+    match /daily_check_ins/{doc} {
+      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+    }
+    match /tasks/{doc} {
+      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+    }
+    match /task_steps/{doc} {
+      allow read, write: if isOwner(resource.data.taskId)
+        || (request.resource != null && isOwner(request.resource.data.taskId));
+    }
+    match /projects/{doc} {
+      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+    }
+    match /roadmap_nodes/{doc} {
+      allow read, write: if isOwner(resource.data.projectId)
+        || (request.resource != null && isOwner(request.resource.data.projectId));
+    }
+    match /focus_sessions/{doc} {
+      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+    }
+    match /daily_reflections/{doc} {
+      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+    }
+    match /user_activity_events/{doc} {
+      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+    }
+    match /ai_interaction_feedback/{doc} {
+      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+    }
+    match /ai_context_audit/{doc} {
+      allow read, write: if isOwner(resource.data.userId) || isOwner(request.resource.data.userId);
+    }
+  }
+}

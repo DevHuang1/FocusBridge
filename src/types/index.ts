@@ -262,6 +262,7 @@ export type ActivityEventName =
   | 'task_step_accepted'
   | 'task_step_dismissed'
   | 'task_step_simplified'
+  | 'task_step_drilled_down'
   | 'task_marked_stuck'
   | 'roadmap_created'
   | 'roadmap_node_opened'

@@ -1,80 +1,83 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
-import type { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import type { User } from 'firebase/auth';
+import {
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+} from 'firebase/auth';
+import { getAuthInstance } from '../lib/firebase';
 import { setActiveUserId, trackActivity } from '../lib/activity';
 import { usePersonalizationStore } from '../store/usePersonalizationStore';
 
+const DEMO_EMAIL = import.meta.env.VITE_DEMO_USER_EMAIL ?? 'demo@focusbridge.app';
+const DEMO_PASSWORD = import.meta.env.VITE_DEMO_USER_PASSWORD ?? 'demo-pass-2026';
+
 interface AuthState {
   user: User | null;
-  session: Session | null;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<{ error?: string }>;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signInAsTestUser: () => void;
+  signInAsDemo: () => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
 
 function onSignedIn(user: User): void {
-  setActiveUserId(user.id);
+  setActiveUserId(user.uid);
   usePersonalizationStore.getState().setPendingCheckIn(true);
   trackActivity('user_login', { screen: 'auth' });
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setActiveUserId(session?.user?.id ?? null);
+    const unsubscribe = onAuthStateChanged(getAuthInstance(), (firebaseUser) => {
+      setUser(firebaseUser);
+      setActiveUserId(firebaseUser?.uid ?? null);
+      if (firebaseUser) onSignedIn(firebaseUser);
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setActiveUserId(session?.user?.id ?? null);
-      if (event === 'SIGNED_IN' && session?.user) onSignedIn(session.user);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error: error?.message };
+    try {
+      await createUserWithEmailAndPassword(getAuthInstance(), email, password);
+      return {};
+    } catch (error: any) {
+      return { error: error?.message ?? 'Sign up failed' };
+    }
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message };
+    try {
+      await signInWithEmailAndPassword(getAuthInstance(), email, password);
+      return {};
+    } catch (error: any) {
+      return { error: error?.message ?? 'Sign in failed' };
+    }
   }, []);
 
-  const signInAsTestUser = useCallback(() => {
-    const fakeUser = {
-      id: 'test-user-001',
-      email: 'test@focusbridge.local',
-      user_metadata: { name: 'Test User' },
-      app_metadata: {},
-      aud: 'authenticated',
-      created_at: new Date().toISOString(),
-    } as User;
-    setUser(fakeUser);
-    setSession({ user: fakeUser, access_token: 'test-token' } as Session);
-    onSignedIn(fakeUser);
+  const signInAsDemo = useCallback(async () => {
+    try {
+      await signInWithEmailAndPassword(getAuthInstance(), DEMO_EMAIL, DEMO_PASSWORD);
+      return {};
+    } catch (error: any) {
+      return { error: error?.message ?? 'Demo sign in failed' };
+    }
   }, []);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    await firebaseSignOut(getAuthInstance());
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInAsTestUser, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signUp, signIn, signInAsDemo, signOut }}>
       {children}
     </AuthContext.Provider>
   );

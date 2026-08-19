@@ -67,7 +67,7 @@ export function PrivacySettings() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const userId = getActiveUserId() ?? user?.id ?? null;
+  const userId = getActiveUserId() ?? user?.uid ?? null;
 
   const loadHistory = useCallback(async () => {
     if (!userId) return;

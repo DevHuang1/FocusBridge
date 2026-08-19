@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo, forwardRef } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type { TaskStep } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { usePersonalizationStore } from '../store/usePersonalizationStore';
@@ -57,7 +57,7 @@ export function TreeBreakdown({ goalTitle, steps }: TreeBreakdownProps) {
   const intensity = usePersonalizationStore((s) => s.preferences.animationIntensity);
   const reducedMotion = usePersonalizationStore((s) => s.preferences.reducedMotion);
   const isReduced =
-    reducedMotion === 'on' ||
+    reducedMotion === 'always_on' ||
     (reducedMotion === 'follow_system' &&
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -268,7 +268,7 @@ export function TreeBreakdown({ goalTitle, steps }: TreeBreakdownProps) {
             isDimmed={isAnyExpanded && !expandedIds.has(step.id) && step.status !== 'completed' && step.status !== 'active'}
             zigZagOffset={zigZagOffset}
             onToggleExpand={toggleExpand}
-            ref={(el) => { cardRefs.current[i] = el; }}
+            innerRef={(el) => { cardRefs.current[i] = el; }}
           />
         ))}
       </div>
@@ -290,24 +290,23 @@ interface RoadmapStepProps {
   isDimmed: boolean;
   zigZagOffset: number;
   onToggleExpand: (id: string) => void;
+  innerRef?: React.Ref<HTMLDivElement>;
 }
 
-const RoadmapStep = forwardRef<HTMLDivElement, RoadmapStepProps>(function RoadmapStep(
-  {
-    step,
-    depth,
-    index,
-    globalIndex,
-    animIndex,
-    skip,
-    isNextPending,
-    expandedIds,
-    isDimmed,
-    zigZagOffset,
-    onToggleExpand,
-  },
-  ref,
-) {
+function RoadmapStep({
+  step,
+  depth,
+  index,
+  globalIndex,
+  animIndex,
+  skip,
+  isNextPending,
+  expandedIds,
+  isDimmed,
+  zigZagOffset,
+  onToggleExpand,
+  innerRef,
+}: RoadmapStepProps) {
   const [childAnim, setChildAnim] = useState(-1);
   const [justCompleted, setJustCompleted] = useState(false);
   const prevStatusRef = useRef(step.status);
@@ -569,7 +568,7 @@ const RoadmapStep = forwardRef<HTMLDivElement, RoadmapStepProps>(function Roadma
         </div>
 
         <div
-          ref={ref}
+          ref={innerRef}
           className={cardClasses}
           style={{
             animationDelay: cardDelay,
@@ -632,7 +631,7 @@ const RoadmapStep = forwardRef<HTMLDivElement, RoadmapStepProps>(function Roadma
 
         {/* Card */}
         <div
-          ref={ref}
+          ref={innerRef}
           className={`flex-1 rounded-xl border transition-shadow duration-200 ${skip ? '' : cardVisible ? 'animate-pop-in' : 'opacity-0'} ${isDone ? 'opacity-55' : ''} ${isStuck ? 'border-dashed opacity-45' : ''} ${expandableOrKids ? 'cursor-pointer hover:shadow-md active:scale-[0.985]' : ''} ${isNextPending && !isDone && !skip ? 'animate-next-glow' : ''} ${justCompleted ? 'animate-completion-flash' : ''}`}
           style={{
             animationDelay: cardDelay,
@@ -651,4 +650,4 @@ const RoadmapStep = forwardRef<HTMLDivElement, RoadmapStepProps>(function Roadma
       {collapsedHint}
     </div>
   );
-});
+}

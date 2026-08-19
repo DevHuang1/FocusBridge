@@ -36,6 +36,7 @@ const EVENT_SPECS: Record<ActivityEventName, EventSpec> = {
   task_step_accepted: { sensitivity: 'standard', category: 'aiPersonalization', purpose: 'task_support', allowedProperties: ['stepIndex', 'durationMinutes'], aiEligible: true, maxAgeDays: 90 },
   task_step_dismissed: { sensitivity: 'standard', category: 'aiPersonalization', purpose: 'task_support', allowedProperties: ['stepIndex'], aiEligible: true, maxAgeDays: 90 },
   task_step_simplified: { sensitivity: 'standard', category: 'aiPersonalization', purpose: 'task_support', allowedProperties: ['stepIndex'], aiEligible: true, maxAgeDays: 90 },
+  task_step_drilled_down: { sensitivity: 'standard', category: 'aiPersonalization', purpose: 'task_support', allowedProperties: ['childCount'], aiEligible: true, maxAgeDays: 90 },
   task_marked_stuck: { sensitivity: 'standard', category: 'aiPersonalization', purpose: 'task_support', allowedProperties: ['stepIndex'], aiEligible: true, maxAgeDays: 90 },
 
   roadmap_created: { sensitivity: 'standard', category: 'aiPersonalization', purpose: 'planning_support', allowedProperties: ['milestoneCount'], aiEligible: true, maxAgeDays: 90 },

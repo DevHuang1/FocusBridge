@@ -26,20 +26,28 @@ cp .env.example .env
 
 | Variable | Description |
 |---|---|
-| `VITE_SUPABASE_URL` | Your Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
-| `VITE_FEATHERLESS_API_KEY` | Featherless AI API key (for task breakdown) |
+| `VITE_FIREBASE_API_KEY` | Firebase web app API key |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase Auth domain (your-project.firebaseapp.com) |
+| `VITE_FIREBASE_PROJECT_ID` | Firebase project ID |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket (your-project.appspot.com) |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
+| `VITE_FIREBASE_APP_ID` | Firebase web app ID |
+| `VITE_OPENROUTER_API_KEY` | OpenRouter AI API key (default provider, for task breakdown) |
 
-### 2. Supabase Database
+### 2. Firebase Setup
 
-Run the migration SQL in your Supabase SQL Editor:
+1. Create a Firebase project at https://console.firebase.google.com
+2. Enable **Email/Password** in Authentication → Sign-in method
+3. Add a web app to get the Firebase config keys above
+4. Deploy Firestore security rules and Cloud Functions (optional):
 
-1. Go to your Supabase Dashboard → SQL Editor
-2. Paste the contents of `supabase/migrations/001_initial_schema.sql`
-3. Run `supabase/migrations/002_activity_tracking.sql` in the same way
-4. Run `supabase/migrations/003_consent_v2_audit.sql` (idempotent; upgrades existing consent columns and adds the AI context audit table)
-
-This creates all required tables with Row Level Security (RLS) policies.
+```bash
+npm install -g firebase-tools
+firebase login
+firebase deploy --only firestore:rules
+cd functions && npm install && npm run build
+cd .. && firebase deploy --only functions
+```
 
 ### 3. Install & Run
 
@@ -48,15 +56,26 @@ npm install
 npm run dev
 ```
 
-The app runs on `http://localhost:5173` (Vite) with an Express proxy on port 3001 for AI calls.
+The app runs on `http://localhost:5173` (Vite). AI calls go directly to the LLM provider (or through the Cloud Function if `VITE_FIREBASE_FUNCTIONS_URL` is set).
 
-### 4. Build
+### 4. Demo Account
+
+Seeds the demo user (`demo@focusbridge.app` / `demo-pass-2026`) with realistic data and activity events:
+
+```bash
+npm run demo:setup
+npm run demo:activity
+```
+
+`demo:setup` uses the Firebase Admin SDK (service-account JSON from Project settings → Service accounts) and is idempotent. `demo:activity` refreshes the activity table in `DEMO_USER.md` (never committed). A one-touch **"Try the demo account"** button on the auth screen signs straight in.
+
+### 5. Build
 
 ```bash
 npm run build
 ```
 
-### 5. Test
+### 6. Test
 
 ```bash
 npm test
@@ -76,11 +95,11 @@ src/
 │   ├── usePersonalizationStore.ts   # Preferences, check-in, theme
 │   └── useConsentStore.ts           # Consent choices (Zustand + persist)
 ├── contexts/
-│   └── AuthContext.tsx               # Supabase auth provider
+│   └── AuthContext.tsx              # Firebase Auth provider
 ├── lib/
-│   ├── ai.ts                        # AI service (Featherless/Vercel AI SDK)
-│   ├── supabase.ts                  # Supabase client
-│   ├── data.ts                      # Supabase CRUD functions
+│   ├── ai.ts                        # AI service (OpenRouter/Featherless)
+│   ├── firebase.ts                  # Firebase client (Auth + Firestore)
+│   ├── data.ts                      # Firestore CRUD functions
 │   ├── activity.ts                  # Consent-gated typed event tracking
 │   ├── context.ts                   # Client wrapper: assembles AI context
 │   ├── contextEngine.ts             # AIContextAssemblyEngine (v1.0 envelopes)
@@ -104,12 +123,13 @@ src/
     └── ...
 ```
 
-## Database Schema
+## Firebase Data Model
 
-| Table | Purpose |
+Firestore collections mirror the previous Supabase tables (same fields, camelCase). Every document stores its owner as `userId` (or `taskId`/`projectId` for child collections), and `firestore.rules` restricts all reads/writes to the signed-in user's own documents.
+
+| Collection | Purpose |
 |---|---|
-| `profiles` | User display name, timezone |
-| `user_preferences` | All personalization settings |
+| `user_preferences` | All personalization settings (doc id = user UID) |
 | `daily_check_ins` | Optional daily self-reported state |
 | `tasks` | Executable work tasks |
 | `task_steps` | Tree breakdown children |
@@ -117,16 +137,11 @@ src/
 | `roadmap_nodes` | Planning milestones |
 | `focus_sessions` | Timed work sessions |
 | `daily_reflections` | End-of-day reflections |
-| `ai_interactions` | Optional audit history |
 | `user_activity_events` | Consent-based typed interaction events |
-| `activity_tracking_preferences` | Consent choices and tracking state |
-| `ai_personalization_profiles` | Derived, explainable preferences (not raw event dumps) |
-| `ai_context_snapshots` | Compact summaries used for AI continuity |
+| `activity_tracking_preferences` | Consent choices and tracking state (doc id = user UID) |
+| `ai_personalization_profiles` | Derived, explainable preferences (doc id = user UID) |
 | `ai_interaction_feedback` | Accepted / edited / dismissed suggestion outcomes |
 | `ai_context_audit` | Metadata-only records of each assembled AI context |
-| `activity_deletion_requests` | Records deletion and reset actions |
-
-All tables have RLS policies ensuring users can only access their own data.
 
 ## Activity Tracking & Adaptive AI
 
@@ -147,7 +162,7 @@ Every LLM call goes through a staged pipeline (`src/lib/contextEngine.ts`) that 
 2. **Load consent** — latest stored preferences (fallback to the local consent store).
 3. **Classify intent** — deterministic keyword classification into one of nine intents.
 4. **Relevance policy** — each intent maps to a policy that is **intersected with consent** (e.g. activity patterns require both `aiPersonalization` and `interactionHistory`; daily context additionally requires `dailyCheckInContext`).
-5. **Retrieve minimal records** — only consent-approved, AI-eligible events within their retention window are read (RLS-scoped).
+5. **Retrieve minimal records** — only consent-approved, AI-eligible events within their retention window are read (scoped to the user's own documents).
 6. **Redact** (`src/lib/redact.ts`) — API keys, bearer tokens, private keys, JWTs, credentials, emails, phone numbers, card numbers, IDs, and session tokens are replaced with `[REDACTED_...]` markers before summarization. Values are never stored.
 7. **Prompt-injection guard** (`src/lib/injection.ts`) — user-authored text (task titles, notes, event properties, prior AI output) is scanned for heuristic injection signals; detected signals add an explicit safety directive, and all user-authored content is delimited as untrusted data in the prompt.
 8. **Deterministic summarization** — events are aggregated into labeled patterns (`derivedPreferences`, `recentRelevantPatterns`) with evidence windows, counts, and confidence. No emotional inference.
@@ -158,7 +173,7 @@ Every LLM call goes through a staged pipeline (`src/lib/contextEngine.ts`) that 
 
 **Message hierarchy** (`src/lib/ai.ts`): the system message carries behavior rules plus any safety directives; the envelope is delivered as a separate user message labeled as DATA (not instructions), followed by the current request. This keeps untrusted context isolated from instructions.
 
-**Production note**: the engine currently runs client-side with Supabase RLS isolating per-user data. For a stricter security posture, move stages 1–8 into a server-side endpoint keyed by the user's session.
+**Production note**: the engine currently runs client-side with Firestore security rules isolating per-user data. For a stricter security posture, move stages 1–8 into a server-side endpoint keyed by the user's session.
 
 ## Design Principles
 

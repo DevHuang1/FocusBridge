@@ -1,4 +1,18 @@
-import { supabase } from './supabase';
+import { getDb } from './firebase';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  writeBatch,
+} from 'firebase/firestore';
 import type {
   UserPreferences,
   WorkTask,
@@ -29,285 +43,291 @@ function today(): string {
 
 // ─── Preferences ──────────────────────────────────────────────────
 export async function fetchPreferences(userId: string): Promise<UserPreferences | null> {
-  const { data, error } = await supabase
-    .from('user_preferences')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (error || !data) return null;
+  const snap = await getDoc(doc(getDb(), 'user_preferences', userId));
+  if (!snap.exists()) return null;
+  const data = snap.data();
   return {
-    animationIntensity: data.animation_level ?? 'soft',
-    colorTheme: data.theme ?? 'sage',
+    animationIntensity: data.animationIntensity ?? 'soft',
+    colorTheme: data.colorTheme ?? 'sage',
     density: data.density ?? 'comfortable',
-    guidanceStyle: data.guidance_style ?? 'brief',
-    celebrationEffects: data.celebration_effects ?? 'subtle',
-    soundHaptics: data.sound_haptics ?? 'off',
-    reducedMotion: data.reduced_motion ?? 'follow_system',
-    aiAdaptation: data.ai_adaptation ?? 'suggestions_only',
-    workRhythm: data.work_rhythm ?? 'flexible',
-    encouragementStyle: data.encouragement_style ?? 'neutral',
-    dailyCheckInEnabled: data.daily_check_in_enabled ?? true,
+    guidanceStyle: data.guidanceStyle ?? 'brief',
+    celebrationEffects: data.celebrationEffects ?? 'subtle',
+    soundHaptics: data.soundHaptics ?? 'off',
+    reducedMotion: data.reducedMotion ?? 'follow_system',
+    aiAdaptation: data.aiAdaptation ?? 'suggestions_only',
+    workRhythm: data.workRhythm ?? 'flexible',
+    encouragementStyle: data.encouragementStyle ?? 'neutral',
+    dailyCheckInEnabled: data.dailyCheckInEnabled ?? true,
   };
 }
 
 export async function savePreferences(userId: string, prefs: UserPreferences): Promise<void> {
-  const { error } = await supabase.from('user_preferences').upsert({
-    user_id: userId,
+  await setDoc(doc(getDb(), 'user_preferences', userId), {
+    userId,
     theme: prefs.colorTheme,
-    animation_level: prefs.animationIntensity,
+    animationLevel: prefs.animationIntensity,
     density: prefs.density,
-    guidance_style: prefs.guidanceStyle,
-    celebration_effects: prefs.celebrationEffects,
-    sound_haptics: prefs.soundHaptics,
-    reduced_motion: prefs.reducedMotion,
-    ai_adaptation: prefs.aiAdaptation,
-    work_rhythm: prefs.workRhythm,
-    encouragement_style: prefs.encouragementStyle,
-    daily_check_in_enabled: prefs.dailyCheckInEnabled,
-    updated_at: now(),
-  }, { onConflict: 'user_id' });
-  if (error) console.error('Failed to save preferences:', error);
+    guidanceStyle: prefs.guidanceStyle,
+    celebrationEffects: prefs.celebrationEffects,
+    soundHaptics: prefs.soundHaptics,
+    reducedMotion: prefs.reducedMotion,
+    aiAdaptation: prefs.aiAdaptation,
+    workRhythm: prefs.workRhythm,
+    encouragementStyle: prefs.encouragementStyle,
+    dailyCheckInEnabled: prefs.dailyCheckInEnabled,
+    updatedAt: now(),
+  }, { merge: true });
 }
 
 // ─── Daily Check-Ins ──────────────────────────────────────────────
 export async function fetchTodayCheckIn(userId: string): Promise<DailyCheckIn | null> {
-  const { data } = await supabase
-    .from('daily_check_ins')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('date', today())
-    .maybeSingle();
-  if (!data) return null;
+  const q = query(
+    collection(getDb(), 'daily_check_ins'),
+    where('userId', '==', userId),
+    where('date', '==', today()),
+    limit(1),
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const data = snap.docs[0].data();
   return {
-    id: data.id,
-    userId: data.user_id,
+    id: snap.docs[0].id,
+    userId: data.userId,
     date: data.date,
-    arrivalState: data.state,
-    supportPreference: data.support_preference,
-    contextNote: data.context_note,
-    createdAt: data.created_at,
+    arrivalState: data.arrivalState,
+    supportPreference: data.supportPreference,
+    contextNote: data.contextNote,
+    createdAt: data.createdAt,
   };
 }
 
 export async function saveCheckIn(userId: string, checkIn: Omit<DailyCheckIn, 'id' | 'userId' | 'createdAt'>): Promise<DailyCheckIn> {
   const id = uid();
-  const { error } = await supabase.from('daily_check_ins').insert({
-    id,
-    user_id: userId,
+  const createdAt = now();
+  await setDoc(doc(getDb(), 'daily_check_ins', id), {
+    userId,
     date: checkIn.date,
-    state: checkIn.arrivalState,
-    support_preference: checkIn.supportPreference,
-    context_note: checkIn.contextNote,
-    created_at: now(),
+    arrivalState: checkIn.arrivalState,
+    supportPreference: checkIn.supportPreference,
+    contextNote: checkIn.contextNote ?? null,
+    createdAt,
   });
-  if (error) console.error('Failed to save check-in:', error);
-  return { id, userId, ...checkIn, createdAt: now() };
+  return { id, userId, ...checkIn, createdAt };
 }
 
 export async function deleteCheckIn(checkInId: string): Promise<void> {
-  await supabase.from('daily_check_ins').delete().eq('id', checkInId);
+  await deleteDoc(doc(getDb(), 'daily_check_ins', checkInId));
 }
 
 // ─── Work Tasks ───────────────────────────────────────────────────
 export async function fetchTasks(userId: string): Promise<WorkTask[]> {
-  const { data } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-  if (!data) return [];
-  return data.map((r) => ({
-    id: r.id,
-    userId: r.user_id,
-    title: r.title,
-    description: r.description,
-    status: r.status,
-    priority: r.priority,
-    scheduledFor: r.scheduled_for,
-    parentId: r.parent_id,
-    sourceMilestoneId: r.source_milestone_id,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
-  }));
+  const q = query(
+    collection(getDb(), 'tasks'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const r = d.data();
+    return {
+      id: d.id,
+      userId: r.userId,
+      title: r.title,
+      description: r.description,
+      status: r.status,
+      priority: r.priority,
+      scheduledFor: r.scheduledFor,
+      parentId: r.parentId,
+      sourceMilestoneId: r.sourceMilestoneId,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    };
+  });
 }
 
 export async function createTask(userId: string, task: { title: string; description?: string; priority?: WorkTask['priority']; scheduledFor?: string; parentId?: string; sourceMilestoneId?: string }): Promise<WorkTask> {
   const id = uid();
   const ts = now();
-  const { error } = await supabase.from('tasks').insert({
-    id,
-    user_id: userId,
+  await setDoc(doc(getDb(), 'tasks', id), {
+    userId,
     title: task.title,
     description: task.description ?? null,
     status: 'pending',
     priority: task.priority ?? 'medium',
-    scheduled_for: task.scheduledFor ?? null,
-    parent_id: task.parentId ?? null,
-    source_milestone_id: task.sourceMilestoneId ?? null,
-    created_at: ts,
-    updated_at: ts,
+    scheduledFor: task.scheduledFor ?? null,
+    parentId: task.parentId ?? null,
+    sourceMilestoneId: task.sourceMilestoneId ?? null,
+    createdAt: ts,
+    updatedAt: ts,
   });
-  if (error) console.error('Failed to create task:', error);
   return { id, userId, title: task.title, description: task.description, status: 'pending', priority: task.priority ?? 'medium', scheduledFor: task.scheduledFor, parentId: task.parentId, sourceMilestoneId: task.sourceMilestoneId, createdAt: ts, updatedAt: ts };
 }
 
 export async function updateTask(taskId: string, updates: Partial<Pick<WorkTask, 'title' | 'description' | 'status' | 'priority' | 'scheduledFor'>>): Promise<void> {
-  const dbUpdates: Record<string, any> = { updated_at: now() };
+  const dbUpdates: Record<string, any> = { updatedAt: now() };
   if (updates.title !== undefined) dbUpdates.title = updates.title;
   if (updates.description !== undefined) dbUpdates.description = updates.description;
   if (updates.status !== undefined) dbUpdates.status = updates.status;
   if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
-  if (updates.scheduledFor !== undefined) dbUpdates.scheduled_for = updates.scheduledFor;
-  await supabase.from('tasks').update(dbUpdates).eq('id', taskId);
+  if (updates.scheduledFor !== undefined) dbUpdates.scheduledFor = updates.scheduledFor;
+  await updateDoc(doc(getDb(), 'tasks', taskId), dbUpdates);
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
-  await supabase.from('task_steps').delete().eq('task_id', taskId);
-  await supabase.from('tasks').delete().eq('id', taskId);
+  const steps = await getDocs(query(collection(getDb(), 'task_steps'), where('taskId', '==', taskId)));
+  const batch = writeBatch(getDb());
+  steps.docs.forEach((s) => batch.delete(s.ref));
+  batch.delete(doc(getDb(), 'tasks', taskId));
+  await batch.commit();
 }
 
 // ─── Task Steps (tree breakdown) ─────────────────────────────────
 export async function fetchTaskSteps(taskId: string): Promise<PersistedTaskStep[]> {
-  const { data } = await supabase
-    .from('task_steps')
-    .select('*')
-    .eq('task_id', taskId)
-    .order('position');
-  if (!data) return [];
-  return data.map((r) => ({
-    id: r.id,
-    taskId: r.task_id,
-    parentStepId: r.parent_step_id,
-    title: r.title,
-    instructions: r.instructions,
-    status: r.status,
-    position: r.position,
-    effortRange: r.effort_range,
-    durationMinutes: r.duration_minutes,
-    microStep: r.micro_step,
-    notes: r.notes,
-  }));
+  const q = query(collection(getDb(), 'task_steps'), where('taskId', '==', taskId), orderBy('position'));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const r = d.data();
+    return {
+      id: d.id,
+      taskId: r.taskId,
+      parentStepId: r.parentStepId,
+      title: r.title,
+      instructions: r.instructions,
+      status: r.status,
+      position: r.position,
+      effortRange: r.effortRange,
+      durationMinutes: r.durationMinutes,
+      microStep: r.microStep,
+      notes: r.notes,
+    };
+  });
 }
 
 export async function saveTaskSteps(taskId: string, steps: Omit<PersistedTaskStep, 'id' | 'taskId'>[]): Promise<void> {
-  await supabase.from('task_steps').delete().eq('task_id', taskId);
-  const rows = steps.map((s, i) => ({
-    id: uid(),
-    task_id: taskId,
-    parent_step_id: s.parentStepId ?? null,
-    title: s.title,
-    instructions: s.instructions ?? null,
-    status: s.status,
-    position: s.position ?? i,
-    effort_range: s.effortRange ?? null,
-    duration_minutes: s.durationMinutes ?? null,
-    micro_step: s.microStep ?? null,
-    notes: s.notes ?? null,
-  }));
-  const { error } = await supabase.from('task_steps').insert(rows);
-  if (error) console.error('Failed to save task steps:', error);
+  const existing = await getDocs(query(collection(getDb(), 'task_steps'), where('taskId', '==', taskId)));
+  const batch = writeBatch(getDb());
+  existing.docs.forEach((s) => batch.delete(s.ref));
+  steps.forEach((s, i) => {
+    const ref = doc(getDb(), 'task_steps', uid());
+    batch.set(ref, {
+      taskId,
+      parentStepId: s.parentStepId ?? null,
+      title: s.title,
+      instructions: s.instructions ?? null,
+      status: s.status,
+      position: s.position ?? i,
+      effortRange: s.effortRange ?? null,
+      durationMinutes: s.durationMinutes ?? null,
+      microStep: s.microStep ?? null,
+      notes: s.notes ?? null,
+    });
+  });
+  await batch.commit();
 }
 
 // ─── Projects (Planning) ─────────────────────────────────────────
 export async function fetchProjects(userId: string): Promise<Project[]> {
-  const { data } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-  if (!data) return [];
-  return data.map((r) => ({
-    id: r.id,
-    userId: r.user_id,
-    title: r.title,
-    description: r.description,
-    status: r.status,
-    targetDate: r.target_date,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
-  }));
+  const q = query(collection(getDb(), 'projects'), where('userId', '==', userId), orderBy('createdAt', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const r = d.data();
+    return {
+      id: d.id,
+      userId: r.userId,
+      title: r.title,
+      description: r.description,
+      status: r.status,
+      targetDate: r.targetDate,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    };
+  });
 }
 
 export async function createProject(userId: string, project: { title: string; description?: string; targetDate?: string }): Promise<Project> {
   const id = uid();
   const ts = now();
-  await supabase.from('projects').insert({
-    id,
-    user_id: userId,
+  await setDoc(doc(getDb(), 'projects', id), {
+    userId,
     title: project.title,
     description: project.description ?? null,
     status: 'active',
-    target_date: project.targetDate ?? null,
-    created_at: ts,
-    updated_at: ts,
+    targetDate: project.targetDate ?? null,
+    createdAt: ts,
+    updatedAt: ts,
   });
   return { id, userId, title: project.title, description: project.description, status: 'active', targetDate: project.targetDate, createdAt: ts, updatedAt: ts };
 }
 
 export async function updateProject(projectId: string, updates: Partial<Pick<Project, 'title' | 'description' | 'status' | 'targetDate'>>): Promise<void> {
-  const dbUpdates: Record<string, any> = { updated_at: now() };
+  const dbUpdates: Record<string, any> = { updatedAt: now() };
   if (updates.title !== undefined) dbUpdates.title = updates.title;
   if (updates.description !== undefined) dbUpdates.description = updates.description;
   if (updates.status !== undefined) dbUpdates.status = updates.status;
-  if (updates.targetDate !== undefined) dbUpdates.target_date = updates.targetDate;
-  await supabase.from('projects').update(dbUpdates).eq('id', projectId);
+  if (updates.targetDate !== undefined) dbUpdates.targetDate = updates.targetDate;
+  await updateDoc(doc(getDb(), 'projects', projectId), dbUpdates);
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-  await supabase.from('roadmap_nodes').delete().eq('project_id', projectId);
-  await supabase.from('projects').delete().eq('id', projectId);
+  const nodes = await getDocs(query(collection(getDb(), 'roadmap_nodes'), where('projectId', '==', projectId)));
+  const batch = writeBatch(getDb());
+  nodes.docs.forEach((n) => batch.delete(n.ref));
+  batch.delete(doc(getDb(), 'projects', projectId));
+  await batch.commit();
 }
 
 // ─── Roadmap Nodes ────────────────────────────────────────────────
 export async function fetchRoadmapNodes(projectId: string): Promise<RoadmapNode[]> {
-  const { data } = await supabase
-    .from('roadmap_nodes')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('position');
-  if (!data) return [];
-  return data.map((r) => ({
-    id: r.id,
-    projectId: r.project_id,
-    title: r.title,
-    outcome: r.outcome,
-    whyItMatters: r.why_it_matters,
-    instructions: r.instructions,
-    checklist: r.checklist,
-    position: r.position,
-    status: r.status,
-    dependencies: r.dependencies,
-    suggestedTimeframe: r.suggested_timeframe,
-    definitionOfDone: r.definition_of_done,
-    potentialObstacles: r.potential_obstacles,
-    fallbackPath: r.fallback_path,
-    nextMilestoneId: r.next_milestone_id,
-    createdAt: r.created_at,
-  }));
+  const q = query(collection(getDb(), 'roadmap_nodes'), where('projectId', '==', projectId), orderBy('position'));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const r = d.data();
+    return {
+      id: d.id,
+      projectId: r.projectId,
+      title: r.title,
+      outcome: r.outcome,
+      whyItMatters: r.whyItMatters,
+      instructions: r.instructions,
+      checklist: r.checklist,
+      position: r.position,
+      status: r.status,
+      dependencies: r.dependencies,
+      suggestedTimeframe: r.suggestedTimeframe,
+      definitionOfDone: r.definitionOfDone,
+      potentialObstacles: r.potentialObstacles,
+      fallbackPath: r.fallbackPath,
+      nextMilestoneId: r.nextMilestoneId,
+      createdAt: r.createdAt,
+    };
+  });
 }
 
 export async function saveRoadmapNodes(projectId: string, nodes: Omit<RoadmapNode, 'id' | 'projectId' | 'createdAt'>[]): Promise<void> {
-  await supabase.from('roadmap_nodes').delete().eq('project_id', projectId);
-  const rows = nodes.map((n, i) => ({
-    id: uid(),
-    project_id: projectId,
-    title: n.title,
-    outcome: n.outcome ?? null,
-    why_it_matters: n.whyItMatters ?? null,
-    instructions: n.instructions ?? null,
-    checklist: n.checklist ?? null,
-    position: n.position ?? i,
-    status: n.status ?? 'pending',
-    dependencies: n.dependencies ?? null,
-    suggested_timeframe: n.suggestedTimeframe ?? null,
-    definition_of_done: n.definitionOfDone ?? null,
-    potential_obstacles: n.potentialObstacles ?? null,
-    fallback_path: n.fallbackPath ?? null,
-    next_milestone_id: n.nextMilestoneId ?? null,
-    created_at: now(),
-  }));
-  const { error } = await supabase.from('roadmap_nodes').insert(rows);
-  if (error) console.error('Failed to save roadmap nodes:', error);
+  const existing = await getDocs(query(collection(getDb(), 'roadmap_nodes'), where('projectId', '==', projectId)));
+  const batch = writeBatch(getDb());
+  existing.docs.forEach((n) => batch.delete(n.ref));
+  nodes.forEach((n, i) => {
+    const ref = doc(getDb(), 'roadmap_nodes', uid());
+    batch.set(ref, {
+      projectId,
+      title: n.title,
+      outcome: n.outcome ?? null,
+      whyItMatters: n.whyItMatters ?? null,
+      instructions: n.instructions ?? null,
+      checklist: n.checklist ?? null,
+      position: n.position ?? i,
+      status: n.status ?? 'pending',
+      dependencies: n.dependencies ?? null,
+      suggestedTimeframe: n.suggestedTimeframe ?? null,
+      definitionOfDone: n.definitionOfDone ?? null,
+      potentialObstacles: n.potentialObstacles ?? null,
+      fallbackPath: n.fallbackPath ?? null,
+      nextMilestoneId: n.nextMilestoneId ?? null,
+      createdAt: now(),
+    });
+  });
+  await batch.commit();
 }
 
 export async function updateRoadmapNode(nodeId: string, updates: Partial<RoadmapNode>): Promise<void> {
@@ -317,226 +337,207 @@ export async function updateRoadmapNode(nodeId: string, updates: Partial<Roadmap
   if (updates.status !== undefined) dbUpdates.status = updates.status;
   if (updates.instructions !== undefined) dbUpdates.instructions = updates.instructions;
   if (updates.position !== undefined) dbUpdates.position = updates.position;
-  await supabase.from('roadmap_nodes').update(dbUpdates).eq('id', nodeId);
+  await updateDoc(doc(getDb(), 'roadmap_nodes', nodeId), dbUpdates);
 }
 
 // ─── Focus Sessions ──────────────────────────────────────────────
-export async function fetchRecentSessions(userId: string, limit = 10): Promise<PersistedFocusSession[]> {
-  const { data } = await supabase
-    .from('focus_sessions')
-    .select('*')
-    .eq('user_id', userId)
-    .order('started_at', { ascending: false })
-    .limit(limit);
-  if (!data) return [];
-  return data.map((r) => ({
-    id: r.id,
-    userId: r.user_id,
-    taskId: r.task_id,
-    startedAt: r.started_at,
-    endedAt: r.ended_at,
-    durationSeconds: r.duration_seconds,
-    status: r.status,
-  }));
+export async function fetchRecentSessions(userId: string, limitCount = 10): Promise<PersistedFocusSession[]> {
+  const q = query(collection(getDb(), 'focus_sessions'), where('userId', '==', userId), orderBy('startedAt', 'desc'), limit(limitCount));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const r = d.data();
+    return {
+      id: d.id,
+      userId: r.userId,
+      taskId: r.taskId,
+      startedAt: r.startedAt,
+      endedAt: r.endedAt,
+      durationSeconds: r.durationSeconds,
+      status: r.status,
+    };
+  });
 }
 
 export async function createFocusSession(userId: string, taskId?: string): Promise<string> {
   const id = uid();
-  await supabase.from('focus_sessions').insert({
-    id,
-    user_id: userId,
-    task_id: taskId ?? null,
-    started_at: now(),
+  await setDoc(doc(getDb(), 'focus_sessions', id), {
+    userId,
+    taskId: taskId ?? null,
+    startedAt: now(),
     status: 'active',
   });
   return id;
 }
 
 export async function endFocusSession(sessionId: string, durationSeconds: number): Promise<void> {
-  await supabase.from('focus_sessions').update({
-    ended_at: now(),
-    duration_seconds: durationSeconds,
+  await updateDoc(doc(getDb(), 'focus_sessions', sessionId), {
+    endedAt: now(),
+    durationSeconds,
     status: 'completed',
-  }).eq('id', sessionId);
+  });
 }
 
 // ─── Daily Reflections ───────────────────────────────────────────
 export async function fetchTodayReflection(userId: string): Promise<DailyReflection | null> {
-  const { data } = await supabase
-    .from('daily_reflections')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('date', today())
-    .maybeSingle();
-  if (!data) return null;
+  const q = query(collection(getDb(), 'daily_reflections'), where('userId', '==', userId), where('date', '==', today()), limit(1));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const data = snap.docs[0].data();
   return {
-    id: data.id,
-    userId: data.user_id,
+    id: snap.docs[0].id,
+    userId: data.userId,
     date: data.date,
-    completedSummary: data.completed_summary,
-    difficultyNote: data.difficulty_note,
-    tomorrowNote: data.tomorrow_note,
-    createdAt: data.created_at,
+    completedSummary: data.completedSummary,
+    difficultyNote: data.difficultyNote,
+    tomorrowNote: data.tomorrowNote,
+    createdAt: data.createdAt,
   };
 }
 
 export async function saveReflection(userId: string, reflection: { completedSummary?: string; difficultyNote?: string; tomorrowNote?: string }): Promise<void> {
-  const id = uid();
-  await supabase.from('daily_reflections').upsert({
-    id,
-    user_id: userId,
+  const existing = await getDocs(query(collection(getDb(), 'daily_reflections'), where('userId', '==', userId), where('date', '==', today()), limit(1)));
+  const id = existing.empty ? uid() : existing.docs[0].id;
+  await setDoc(doc(getDb(), 'daily_reflections', id), {
+    userId,
     date: today(),
-    completed_summary: reflection.completedSummary ?? null,
-    difficulty_note: reflection.difficultyNote ?? null,
-    tomorrow_note: reflection.tomorrowNote ?? null,
-    created_at: now(),
-  }, { onConflict: 'user_id,date' });
+    completedSummary: reflection.completedSummary ?? null,
+    difficultyNote: reflection.difficultyNote ?? null,
+    tomorrowNote: reflection.tomorrowNote ?? null,
+    createdAt: now(),
+  }, { merge: true });
 }
 
 // ─── Activity Tracking ──────────────────────────────────────────
 export async function insertActivityEvent(event: UserActivityEvent): Promise<boolean> {
-  const { error } = await supabase.from('user_activity_events').insert({
-    user_id: event.userId,
-    session_id: event.sessionId ?? null,
-    event_name: event.eventName,
-    occurred_at: event.occurredAt,
-    source: event.source,
-    screen: event.screen ?? null,
-    object_type: event.objectType ?? null,
-    object_id: event.objectId ?? null,
-    properties: event.properties,
-    sensitivity: event.sensitivity,
-    idempotency_key: event.id,
-  });
-  if (error) {
+  try {
+    await setDoc(doc(getDb(), 'user_activity_events', event.id), {
+      userId: event.userId,
+      sessionId: event.sessionId ?? null,
+      eventName: event.eventName,
+      occurredAt: event.occurredAt,
+      timezone: event.timezone ?? null,
+      source: event.source,
+      screen: event.screen ?? null,
+      objectType: event.objectType ?? null,
+      objectId: event.objectId ?? null,
+      properties: event.properties ?? {},
+      sensitivity: event.sensitivity,
+      idempotencyKey: event.id,
+    });
+    return true;
+  } catch (error) {
     console.error('Failed to insert activity event:', error);
     return false;
   }
-  return true;
 }
 
-export async function fetchActivityEvents(userId: string, limit = 50): Promise<UserActivityEvent[]> {
-  const { data } = await supabase
-    .from('user_activity_events')
-    .select('*')
-    .eq('user_id', userId)
-    .order('occurred_at', { ascending: false })
-    .limit(limit);
-  if (!data) return [];
-  return data.map((r) => ({
-    id: r.id,
-    userId: r.user_id,
-    sessionId: r.session_id ?? undefined,
-    eventName: r.event_name as UserActivityEvent['eventName'],
-    occurredAt: r.occurred_at,
-    source: r.source,
-    screen: r.screen ?? undefined,
-    objectType: r.object_type ?? undefined,
-    objectId: r.object_id ?? undefined,
-    properties: r.properties ?? {},
-    sensitivity: r.sensitivity ?? 'standard',
-    consentContext: {
-      interactionHistory: false,
-      aiPersonalization: false,
-      dailyCheckInContext: false,
-      conversationMemory: false,
-    },
-  }));
+export async function fetchActivityEvents(userId: string, limitCount = 50): Promise<UserActivityEvent[]> {
+  const q = query(collection(getDb(), 'user_activity_events'), where('userId', '==', userId), orderBy('occurredAt', 'desc'), limit(limitCount));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const r = d.data();
+    return {
+      id: d.id,
+      userId: r.userId,
+      sessionId: r.sessionId ?? undefined,
+      eventName: r.eventName as UserActivityEvent['eventName'],
+      occurredAt: r.occurredAt,
+      source: r.source,
+      screen: r.screen ?? undefined,
+      objectType: r.objectType ?? undefined,
+      objectId: r.objectId ?? undefined,
+      properties: r.properties ?? {},
+      sensitivity: r.sensitivity ?? 'standard',
+      consentContext: {
+        interactionHistory: false,
+        aiPersonalization: false,
+        dailyCheckInContext: false,
+        conversationMemory: false,
+      },
+    };
+  });
 }
 
 export async function fetchConsentStatus(userId: string): Promise<ConsentSettings | null> {
-  const { data } = await supabase
-    .from('activity_tracking_preferences')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (!data) return null;
+  const snap = await getDoc(doc(getDb(), 'activity_tracking_preferences', userId));
+  if (!snap.exists()) return null;
+  const data = snap.data();
   return {
-    interactionHistory: data.interaction_history ?? false,
-    aiPersonalization: data.ai_personalization ?? false,
-    dailyCheckInContext: data.daily_check_in_context ?? false,
-    conversationMemory: data.conversation_memory ?? false,
-    technicalDiagnostics: data.technical_diagnostics ?? true,
-    consentVersion: data.consent_version ?? '1.0',
-    updatedAt: data.updated_at ?? new Date().toISOString(),
+    interactionHistory: data.interactionHistory ?? false,
+    aiPersonalization: data.aiPersonalization ?? false,
+    dailyCheckInContext: data.dailyCheckInContext ?? false,
+    conversationMemory: data.conversationMemory ?? false,
+    technicalDiagnostics: data.technicalDiagnostics ?? true,
+    consentVersion: data.consentVersion ?? '1.0',
+    updatedAt: data.updatedAt ?? new Date().toISOString(),
   };
 }
 
 export async function saveConsentStatus(userId: string, consent: ConsentSettings, hasConsented: boolean): Promise<void> {
-  const { error } = await supabase.from('activity_tracking_preferences').upsert({
-    user_id: userId,
-    interaction_history: consent.interactionHistory,
-    ai_personalization: consent.aiPersonalization,
-    daily_check_in_context: consent.dailyCheckInContext,
-    conversation_memory: consent.conversationMemory,
-    technical_diagnostics: consent.technicalDiagnostics,
-    consent_version: consent.consentVersion ?? '1.0',
-    has_consented: hasConsented,
-    updated_at: now(),
-  }, { onConflict: 'user_id' });
-  if (error) console.error('Failed to save consent status:', error);
+  await setDoc(doc(getDb(), 'activity_tracking_preferences', userId), {
+    userId,
+    interactionHistory: consent.interactionHistory,
+    aiPersonalization: consent.aiPersonalization,
+    dailyCheckInContext: consent.dailyCheckInContext,
+    conversationMemory: consent.conversationMemory,
+    technicalDiagnostics: consent.technicalDiagnostics,
+    consentVersion: consent.consentVersion ?? '1.0',
+    hasConsented,
+    updatedAt: now(),
+  }, { merge: true });
 }
 
 export async function fetchPersonalizationProfile(userId: string): Promise<AIPersonalizationProfile | null> {
-  const { data } = await supabase
-    .from('ai_personalization_profiles')
-    .select('profile')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (!data) return null;
-  return data.profile as AIPersonalizationProfile;
+  const snap = await getDoc(doc(getDb(), 'ai_personalization_profiles', userId));
+  if (!snap.exists()) return null;
+  return snap.data().profile as AIPersonalizationProfile;
 }
 
 export async function savePersonalizationProfile(userId: string, profile: AIPersonalizationProfile): Promise<void> {
-  const { error } = await supabase.from('ai_personalization_profiles').upsert({
-    user_id: userId,
+  await setDoc(doc(getDb(), 'ai_personalization_profiles', userId), {
+    userId,
     profile,
-    last_updated_at: now(),
-  }, { onConflict: 'user_id' });
-  if (error) console.error('Failed to save personalization profile:', error);
+    lastUpdatedAt: now(),
+  }, { merge: true });
 }
 
 export async function deleteActivityHistory(userId: string): Promise<void> {
-  const { error } = await supabase
-    .from('user_activity_events')
-    .delete()
-    .eq('user_id', userId);
-  if (error) console.error('Failed to delete activity history:', error);
+  const q = query(collection(getDb(), 'user_activity_events'), where('userId', '==', userId));
+  const snap = await getDocs(q);
+  const batch = writeBatch(getDb());
+  snap.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
 }
 
 export async function resetPersonalizationProfile(userId: string): Promise<void> {
-  const { error } = await supabase
-    .from('ai_personalization_profiles')
-    .delete()
-    .eq('user_id', userId);
-  if (error) console.error('Failed to reset personalization profile:', error);
+  await deleteDoc(doc(getDb(), 'ai_personalization_profiles', userId));
 }
 
 export async function logAIFeedback(userId: string, feedback: { suggestionType?: string; outcome: 'accepted' | 'edited' | 'dismissed' | 'rejected'; sourceEvent?: string }): Promise<void> {
-  const { error } = await supabase.from('ai_interaction_feedback').insert({
-    user_id: userId,
-    suggestion_type: feedback.suggestionType ?? null,
+  await setDoc(doc(getDb(), 'ai_interaction_feedback', uid()), {
+    userId,
+    suggestionType: feedback.suggestionType ?? null,
     outcome: feedback.outcome,
-    source_event: feedback.sourceEvent ?? null,
+    sourceEvent: feedback.sourceEvent ?? null,
+    createdAt: now(),
   });
-  if (error) console.error('Failed to log AI feedback:', error);
 }
 
 export async function writeContextAudit(record: AssemblyAuditRecord): Promise<void> {
-  const { error } = await supabase.from('ai_context_audit').insert({
-    request_id: record.requestId,
-    user_id: record.userId,
-    schema_version: record.schemaVersion,
+  await setDoc(doc(getDb(), 'ai_context_audit', uid()), {
+    requestId: record.requestId,
+    userId: record.userId,
+    schemaVersion: record.schemaVersion,
     intent: record.intent,
-    consent_applied: record.consentApplied,
-    categories_included: record.categoriesIncluded,
-    categories_excluded: record.categoriesExcluded,
-    events_considered: record.eventsConsidered,
-    events_included: record.eventsIncluded,
-    redactions_by_category: record.redactionsByCategory,
-    estimated_tokens: record.estimatedTokens,
+    consentApplied: record.consentApplied,
+    categoriesIncluded: record.categoriesIncluded,
+    categoriesExcluded: record.categoriesExcluded,
+    eventsConsidered: record.eventsConsidered,
+    eventsIncluded: record.eventsIncluded,
+    redactionsByCategory: record.redactionsByCategory,
+    estimatedTokens: record.estimatedTokens,
     outcome: record.outcome,
-    failure_category: record.failureCategory ?? null,
+    failureCategory: record.failureCategory ?? null,
+    createdAt: now(),
   });
-  if (error) console.error('Failed to write context audit:', error);
 }

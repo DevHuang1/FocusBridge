@@ -68,17 +68,6 @@ function mapStepById(steps: TaskStep[], id: string, fn: (s: TaskStep) => TaskSte
   });
 }
 
-function findStepById(steps: TaskStep[], id: string): TaskStep | undefined {
-  for (const s of steps) {
-    if (s.id === id) return s;
-    if (s.children) {
-      const found = findStepById(s.children, id);
-      if (found) return found;
-    }
-  }
-  return undefined;
-}
-
 function flattenSteps(steps: TaskStep[]): TaskStep[] {
   const result: TaskStep[] = [];
   for (const s of steps) {
