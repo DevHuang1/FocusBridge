@@ -39,6 +39,8 @@
   --color-theme-primary-dark: #4A6F4A;
   --color-theme-surface: #F4F7F4;
   --color-theme-border: #C9D9C9;
+  --color-theme-primary-transparent: rgba(92, 138, 92, 0);
+  --color-theme-primary-glow: rgba(92, 138, 92, 0.12);
 
   /* ─── Motion Tokens ────────────────────────────── */
   --motion-duration-none: 0ms;
@@ -62,6 +64,8 @@
   --color-theme-primary-dark: #4A6E80;
   --color-theme-surface: #F2F6F8;
   --color-theme-border: #C4D4DE;
+  --color-theme-primary-transparent: rgba(107, 143, 163, 0);
+  --color-theme-primary-glow: rgba(107, 143, 163, 0.12);
   --color-cream-50: #F7FAFB;
   --color-cream-100: #EEF3F5;
   --color-cream-200: #DDE6EA;
@@ -74,6 +78,8 @@
   --color-theme-primary-dark: #6B5D88;
   --color-theme-surface: #F5F3F8;
   --color-theme-border: #D4CBE3;
+  --color-theme-primary-transparent: rgba(139, 125, 168, 0);
+  --color-theme-primary-glow: rgba(139, 125, 168, 0.12);
   --color-cream-50: #F8F6FB;
   --color-cream-100: #F0ECF5;
   --color-cream-200: #E1DAED;
@@ -86,6 +92,8 @@
   --color-theme-primary-dark: #3D7595;
   --color-theme-surface: #F2F7FA;
   --color-theme-border: #BDD5E3;
+  --color-theme-primary-transparent: rgba(91, 147, 181, 0);
+  --color-theme-primary-glow: rgba(91, 147, 181, 0.12);
   --color-cream-50: #F5FAFD;
   --color-cream-100: #EBF4F8;
   --color-cream-200: #D5E6EF;
@@ -98,6 +106,8 @@
   --color-theme-primary-dark: #95754B;
   --color-theme-surface: #FAF6F0;
   --color-theme-border: #DDD0BC;
+  --color-theme-primary-transparent: rgba(181, 149, 107, 0);
+  --color-theme-primary-glow: rgba(181, 149, 107, 0.12);
   --color-cream-50: #FDF9F3;
   --color-cream-100: #F8F1E6;
   --color-cream-200: #EDE0CC;
@@ -110,6 +120,8 @@
   --color-theme-primary-dark: #955A6A;
   --color-theme-surface: #FAF2F4;
   --color-theme-border: #E0C4CC;
+  --color-theme-primary-transparent: rgba(181, 122, 138, 0);
+  --color-theme-primary-glow: rgba(181, 122, 138, 0.12);
   --color-cream-50: #FDF5F7;
   --color-cream-100: #F8EAEF;
   --color-cream-200: #EDD4DC;
@@ -251,6 +263,80 @@ input:focus, textarea:focus, button:focus-visible {
 
 .animate-gentle-glow {
   animation: gentle-glow 3s ease-in-out infinite;
+}
+
+/* ─── Tree Animations ─────────────────────────────────────── */
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.85) translateY(6px); }
+  60% { opacity: 1; transform: scale(1.02) translateY(-1px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes ripple {
+  0% { transform: scale(0.4); opacity: 0.7; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+@keyframes dot-in {
+  0% { opacity: 0; transform: scale(0); }
+  60% { opacity: 1; transform: scale(1.3); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes tree-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-theme-primary-transparent, rgba(92,138,92,0)); }
+  50% { box-shadow: 0 0 0 6px var(--color-theme-primary-glow, rgba(92,138,92,0.12)); }
+}
+
+@keyframes next-glow {
+  0%, 100% {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 0 0 0 var(--color-theme-primary-transparent);
+  }
+  50% {
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.08), 0 0 0 5px var(--color-theme-primary-glow);
+  }
+}
+
+@keyframes completion-flash {
+  0% { transform: scale(1); }
+  15% { transform: scale(1.025); }
+  40% { transform: scale(0.985); }
+  100% { transform: scale(1); }
+}
+
+@keyframes check-draw {
+  0% { stroke-dashoffset: 12; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.animate-pop-in {
+  animation: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animate-ripple {
+  animation: ripple 0.5s ease-out both;
+}
+
+.animate-dot-in {
+  animation: dot-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animate-tree-glow {
+  animation: tree-glow-pulse 2.5s ease-in-out infinite;
+}
+
+.animate-next-glow {
+  animation: next-glow 2.8s ease-in-out infinite;
+}
+
+.animate-completion-flash {
+  animation: completion-flash 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animate-check-draw {
+  stroke-dasharray: 12;
+  stroke-dashoffset: 0;
+  animation: check-draw 0.3s ease-out both;
 }
 
 /* ─── Scrollbar Styling ──────────────────────────────────────── */

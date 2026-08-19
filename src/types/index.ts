@@ -29,6 +29,8 @@ export interface TaskStep {
   microStep?: string;
   notes?: string;
   effortRange?: string;
+  children?: TaskStep[];
+  isDrilling?: boolean;
 }
 
 export interface StepGroup {

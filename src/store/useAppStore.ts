@@ -24,6 +24,7 @@ interface AppStore extends AppState {
   makeStepEasier: () => void;
   updateStepTime: (stepId: string, minutes: number) => void;
   updateStepTitle: (stepId: string, title: string) => void;
+  drillDownStep: (stepId: string) => Promise<void>;
   dismissCheckIn: () => void;
   resetToHome: () => void;
   setSummary: (summary: string) => void;
@@ -492,6 +493,75 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
 
     set({ currentSession: { ...currentSession, steps } });
     trackActivity('task_updated', { objectType: 'task_step', objectId: stepId, properties: { field: 'title' } });
+  },
+
+  drillDownStep: async (stepId: string) => {
+    const { currentSession } = get();
+    if (!currentSession) return;
+
+    function setDrilling(steps: TaskStep[], id: string, drilling: boolean): TaskStep[] {
+      return steps.map(s => {
+        if (s.id === id) return { ...s, isDrilling: drilling };
+        if (s.children) return { ...s, children: setDrilling(s.children, id, drilling) };
+        return s;
+      });
+    }
+
+    function replaceChildren(steps: TaskStep[], id: string, children: TaskStep[]): TaskStep[] {
+      return steps.map(s => {
+        if (s.id === id) return { ...s, children, isDrilling: false };
+        if (s.children) return { ...s, children: replaceChildren(s.children, id, children) };
+        return s;
+      });
+    }
+
+    function findStep(steps: TaskStep[], id: string): TaskStep | undefined {
+      for (const s of steps) {
+        if (s.id === id) return s;
+        if (s.children) {
+          const found = findStep(s.children, id);
+          if (found) return found;
+        }
+      }
+      return undefined;
+    }
+
+    const step = findStep(currentSession.steps, stepId);
+    if (!step || step.children || step.isDrilling) return;
+
+    set({ currentSession: { ...currentSession, steps: setDrilling(currentSession.steps, stepId, true) } });
+
+    try {
+      const rawResponse = await aiService.generateStepBreakdown(step.title, currentSession.goalTitle);
+      const parsed = aiService.extractJsonArray(rawResponse);
+
+      let children: TaskStep[] = [];
+      if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+        children = parsed.map((child: any, i: number) => ({
+          id: `step-${Date.now()}-${i}`,
+          title: child.title || `Sub-step ${i + 1}`,
+          durationMinutes: Math.min(5, Math.max(1, child.durationMinutes || 3)),
+          status: 'pending' as const,
+        }));
+      }
+
+      if (children.length === 0) {
+        children = [
+          { id: `step-${Date.now()}-0`, title: `Look at: ${step.title.toLowerCase()}`, durationMinutes: 2, status: 'pending' },
+          { id: `step-${Date.now()}-1`, title: `Do the first part of: ${step.title.toLowerCase()}`, durationMinutes: 3, status: 'pending' },
+        ];
+      }
+
+      set({ currentSession: { ...currentSession, steps: replaceChildren(currentSession.steps, stepId, children) } });
+      trackActivity('task_step_drilled_down', { objectType: 'task_step', objectId: stepId, properties: { childCount: children.length } });
+    } catch (error) {
+      console.error("Drill-down AI failed:", error);
+      const fallback: TaskStep[] = [
+        { id: `step-${Date.now()}-0`, title: `Start with: ${step.title.toLowerCase()}`, durationMinutes: 2, status: 'pending' },
+        { id: `step-${Date.now()}-1`, title: `Continue: ${step.title.toLowerCase()}`, durationMinutes: 3, status: 'pending' },
+      ];
+      set({ currentSession: { ...currentSession, steps: replaceChildren(currentSession.steps, stepId, fallback) } });
+    }
   },
 
   setSummary: (summary: string) => {
