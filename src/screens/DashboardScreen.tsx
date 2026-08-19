@@ -200,7 +200,7 @@ export function DashboardScreen() {
     <div className="min-h-screen flex flex-col">
       <div className="w-full px-5 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <img src="/focus_bridge.png" alt="" className="w-6 h-6 object-contain" />
+          <img src="/focus_bridge.png" alt="" className="w-9 h-9 object-contain" />
           <span className="text-sm font-semibold tracking-tight text-text-secondary">FocusBridge</span>
         </div>
         <div className="flex items-center gap-1">
