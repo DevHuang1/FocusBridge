@@ -33,6 +33,9 @@ export function FeedbackPrompt({ onFeedback }: FeedbackPromptProps) {
           </button>
         ))}
       </div>
+      <button onClick={() => onFeedback('okay')} className="mt-4 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer">
+        Skip
+      </button>
     </div>
   );
 }

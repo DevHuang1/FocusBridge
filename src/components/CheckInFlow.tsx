@@ -3,7 +3,7 @@ import { Card } from './Card';
 import { Button } from './Button';
 import { trackActivity } from '../lib/activity';
 import type { ArrivalState, SupportPreference, DailyCheckIn } from '../types';
-import { Check, ChevronRight, X } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, X } from 'lucide-react';
 
 const arrivalOptions: { value: ArrivalState; label: string; emoji: string }[] = [
   { value: 'calm_and_ready', label: 'Calm and ready', emoji: '🌿' },
@@ -84,6 +84,9 @@ export function CheckInFlow({ onComplete, onSkip }: CheckInFlowProps) {
 
         {step === 'support' && (
           <div className="animate-fade-in">
+            <button onClick={() => setStep('arrival')} className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors mb-6 cursor-pointer">
+              <ChevronLeft size={16} /> Back
+            </button>
             <div className="text-center mb-8">
               <h2 className="font-serif text-2xl md:text-3xl text-text-primary mb-3">What kind of support would feel most useful right now?</h2>
             </div>
@@ -101,6 +104,9 @@ export function CheckInFlow({ onComplete, onSkip }: CheckInFlowProps) {
 
         {step === 'context' && (
           <div className="animate-fade-in">
+            <button onClick={() => setStep('support')} className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors mb-6 cursor-pointer">
+              <ChevronLeft size={16} /> Back
+            </button>
             <div className="text-center mb-8">
               <h2 className="font-serif text-2xl md:text-3xl text-text-primary mb-3">Anything else about today?</h2>
               <p className="text-text-muted text-sm">Optional context that might help FocusBridge support you today.</p>

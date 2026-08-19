@@ -6,6 +6,7 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { CheckInSummary, CheckInFlow } from '../components/CheckInFlow';
 import { ConsentCard } from '../components/ConsentCard';
+import { useToast } from '../components/Toast';
 import { Settings, LogOut, ArrowRight, History, ChevronRight, Play, CircleDot, Send } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { streamBreakdown, extractJsonArray } from '../lib/ai';
@@ -26,6 +27,8 @@ export function DashboardScreen() {
   const currentSession = useAppStore((s) => s.currentSession);
   const setScreen = useAppStore((s) => s.setScreen);
   const dailyCheckInEnabled = usePersonalizationStore((s) => s.preferences.dailyCheckInEnabled);
+  const guidanceStyle = usePersonalizationStore((s) => s.preferences.guidanceStyle);
+  const preferredTaskDuration = usePersonalizationStore((s) => s.profile?.preferredTaskDuration);
   const todayCheckIn = usePersonalizationStore((s) => s.todayCheckIn);
   const setTodayCheckIn = usePersonalizationStore((s) => s.setTodayCheckIn);
   const clearTodayCheckIn = usePersonalizationStore((s) => s.clearTodayCheckIn);
@@ -33,6 +36,7 @@ export function DashboardScreen() {
   const hasConsented = useConsentStore((s) => s.hasConsented);
   const consentDismissed = useConsentStore((s) => s.consentDismissed);
 
+  const { toast } = useToast();
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -105,6 +109,7 @@ export function DashboardScreen() {
         },
         (status) => setThinkingPhrase(status),
         envelope,
+        { preferredTaskDuration, guidanceStyle },
       );
 
       if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
@@ -151,6 +156,7 @@ export function DashboardScreen() {
       trackActivity('task_breakdown_generated', { properties: { stepCount: steps.length } });
     } catch (error) {
       console.error('Stream breakdown failed:', error);
+      toast('AI breakdown failed — using starter steps', 'error');
       if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
       const fallbackSteps: TaskStep[] = [
         { id: `step-${Date.now()}-0`, title: 'Open the relevant materials', durationMinutes: 2, status: 'pending' },

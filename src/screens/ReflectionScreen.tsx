@@ -34,7 +34,7 @@ export function ReflectionScreen() {
     <div className="min-h-screen flex flex-col items-center px-4 py-12 md:py-16">
       <SoftConfetti active={!!isSessionDone} />
       <div className="w-full max-w-lg animate-fade-in">
-        <button onClick={() => setScreen('home')} className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors mb-8 cursor-pointer">
+        <button onClick={() => setScreen('dashboard')} className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors mb-8 cursor-pointer">
           <ChevronLeft size={16} />Back
         </button>
 

@@ -174,11 +174,12 @@ export async function streamBreakdown(
   onToken: (token: string) => void,
   onStatus?: (status: string) => void,
   envelope?: AIContextEnvelope,
+  preferences?: { preferredTaskDuration?: number; guidanceStyle?: string },
 ): Promise<string> {
   const apiKey = resolveApiKey();
   if (!apiKey && !FUNCTIONS_URL) {
     onStatus?.('Creating steps...');
-    const result = await generateBreakdown(goal, {} as UserProfile, envelope);
+    const result = await generateBreakdown(goal, {} as UserProfile, envelope, preferences);
     onToken(result);
     return result;
   }
@@ -186,6 +187,15 @@ export async function streamBreakdown(
   onStatus?.('Thinking...');
 
   try {
+    const durationHint = preferences?.preferredTaskDuration
+      ? `\n- Each step should ideally take around ${preferences.preferredTaskDuration} minutes or less.`
+      : '';
+    const styleHint = preferences?.guidanceStyle === 'detailed'
+      ? '\n- Include slightly more descriptive step titles (up to 20 words).'
+      : preferences?.guidanceStyle === 'next_step'
+      ? '\n- Focus on the very first physical action. Be extremely concrete.'
+      : '';
+
     const system = `${FOCUSBRIDGE_SYSTEM}
 
 Your ONLY job is to break down goals into micro-steps.
@@ -195,7 +205,7 @@ RULES:
 - Each object has "title" (string, 5-15 words) and "durationMinutes" (number, 1-5).
 - 3 to 5 steps. Start with the absolute easiest first step.
 - Steps must be specific and actionable for the user's goal.
-- Use compassionate, action-oriented language.
+- Use compassionate, action-oriented language.${durationHint}${styleHint}
 
 Example output:
 [{"title":"Fill a pot with water and put it on the stove","durationMinutes":2},{"title":"Add salt and bring water to a boil","durationMinutes":5}]`;
@@ -262,8 +272,17 @@ Example output:
 }
 
 // ─── Non-streaming helpers ────────────────────────────────────
-async function generateBreakdown(goal: string, _profile: UserProfile, envelope?: AIContextEnvelope): Promise<string> {
+async function generateBreakdown(goal: string, _profile: UserProfile, envelope?: AIContextEnvelope, preferences?: { preferredTaskDuration?: number; guidanceStyle?: string }): Promise<string> {
   try {
+    const durationHint = preferences?.preferredTaskDuration
+      ? `\n- Each step should ideally take around ${preferences.preferredTaskDuration} minutes or less.`
+      : '';
+    const styleHint = preferences?.guidanceStyle === 'detailed'
+      ? '\n- Include slightly more descriptive step titles (up to 20 words).'
+      : preferences?.guidanceStyle === 'next_step'
+      ? '\n- Focus on the very first physical action. Be extremely concrete.'
+      : '';
+
     const system = `${FOCUSBRIDGE_SYSTEM}
 
 Your ONLY job is to break down goals into micro-steps.
@@ -273,7 +292,7 @@ RULES:
 - Each object has "title" (string, 5-15 words) and "durationMinutes" (number, 1-5).
 - 3 to 5 steps. Start with the absolute easiest first step.
 - Steps must be specific and actionable for the user's goal.
-- Use compassionate, action-oriented language.
+- Use compassionate, action-oriented language.${durationHint}${styleHint}
 
 Example output:
 [{"title":"Fill a pot with water and put it on the stove","durationMinutes":2},{"title":"Add salt and bring water to a boil","durationMinutes":5}]`;
@@ -431,6 +450,7 @@ export const aiService = {
     return encouragementMessages[Math.floor(Math.random() * encouragementMessages.length)];
   },
   generateBreakdown,
+  generateStepBreakdown,
   streamBreakdown,
   generateStuckAlternative,
   generateEasierAlternative,

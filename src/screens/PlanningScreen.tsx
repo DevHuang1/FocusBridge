@@ -5,16 +5,20 @@ import { Button } from '../components/Button';
 import { TextInput } from '../components/TextInput';
 import { TypingIndicator } from '../components/TypingIndicator';
 import { AnimatedItem } from '../components/CalmMotion';
-import { aiService } from '../lib/ai';
+import { useToast } from '../components/Toast';
+import { aiService, extractJsonArray } from '../lib/ai';
 import { trackActivity } from '../lib/activity';
 import {   ChevronLeft, ChevronDown, CheckCircle2, Circle, ArrowRight, Sparkles, Clock, AlertTriangle, Link as LinkIcon, Play, Pause, Check } from 'lucide-react';
-import type { Project, RoadmapNode, MilestoneStatus } from '../types';
+import type { Project, RoadmapNode, MilestoneStatus, TaskStep } from '../types';
 
 export function PlanningScreen() {
   const setScreen = useAppStore((s) => s.setScreen);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { toast } = useToast();
+  const projects = useAppStore((s) => s.projects);
+  const setProjects = useAppStore((s) => s.setProjects);
+  const milestones = useAppStore((s) => s.milestones);
+  const setMilestones = useAppStore((s) => s.setMilestones);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [milestones, setMilestones] = useState<RoadmapNode[]>([]);
   const [selectedMilestone, setSelectedMilestone] = useState<RoadmapNode | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -39,6 +43,7 @@ export function PlanningScreen() {
       trackActivity('roadmap_created', { properties: { milestoneCount: newMilestones.length } });
     } catch (error) {
       console.error('Failed to generate milestones:', error);
+      toast('Failed to generate roadmap — please try again', 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -138,7 +143,40 @@ export function PlanningScreen() {
                             {milestone.status !== 'in_progress' && milestone.status !== 'completed' && <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); updateMilestoneStatus(milestone.id, 'in_progress'); }}><Play size={14} />Start</Button>}
                             {milestone.status !== 'paused' && milestone.status !== 'completed' && <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); updateMilestoneStatus(milestone.id, 'paused'); }}><Pause size={14} />Pause</Button>}
                           </div>
-                          <Button size="sm" className="w-full mt-2" onClick={(e) => { e.stopPropagation(); trackActivity('roadmap_node_converted_to_task', { objectType: 'roadmap_node', objectId: milestone.id, properties: { nodeIndex: i } }); setScreen('work_tasks'); }}><Sparkles size={14} />Convert to work tasks</Button>
+                          <Button size="sm" className="w-full mt-2" onClick={async (e) => {
+                            e.stopPropagation();
+                            trackActivity('roadmap_node_converted_to_task', { objectType: 'roadmap_node', objectId: milestone.id, properties: { nodeIndex: i } });
+                            try {
+                              const raw = await aiService.generateTasksFromMilestone(milestone.title, milestone.outcome || '');
+                              const parsed = extractJsonArray(raw);
+                              const steps: TaskStep[] = (parsed && Array.isArray(parsed) ? parsed : []).map((t: any, j: number) => ({
+                                id: `step-${Date.now()}-${j}`,
+                                title: t.title || `Task ${j + 1}`,
+                                durationMinutes: Math.min(10, Math.max(1, t.durationMinutes || 5)),
+                                status: 'pending' as const,
+                              }));
+                              if (steps.length > 0) {
+                                useAppStore.setState({
+                                  currentSession: {
+                                    id: `session-${Date.now()}`,
+                                    goalTitle: milestone.title,
+                                    steps,
+                                    groups: [{ label: 'From milestone', emoji: '📋', steps }],
+                                    currentStepIndex: 0,
+                                    feedback: [],
+                                    startedAt: new Date().toISOString(),
+                                    distractions: [],
+                                  },
+                                  sessionSteps: steps,
+                                  screen: 'work_tasks',
+                                });
+                              } else {
+                                setScreen('work_tasks');
+                              }
+                            } catch {
+                              setScreen('work_tasks');
+                            }
+                          }}><Sparkles size={14} />Convert to work tasks</Button>
                         </div>
                       )}
                     </Card>

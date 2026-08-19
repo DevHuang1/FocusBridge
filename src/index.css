@@ -191,8 +191,8 @@ input:focus, textarea:focus, button:focus-visible {
 }
 
 @keyframes gentle-glow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(92, 138, 92, 0); }
-  50% { box-shadow: 0 0 0 8px rgba(92, 138, 92, 0.08); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-theme-primary-transparent); }
+  50% { box-shadow: 0 0 0 8px var(--color-theme-primary-glow); }
 }
 
 .animate-fade-in {

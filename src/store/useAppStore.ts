@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AppState, TaskStep, FeedbackLevel, UserProfile, Goal, MoodEntry, MoodLevel, EnergyLevel, DistractionEntry, Screen } from '../types';
+import type { AppState, TaskStep, FeedbackLevel, UserProfile, Goal, MoodEntry, MoodLevel, EnergyLevel, DistractionEntry, Screen, Project, RoadmapNode } from '../types';
 import { aiService } from '../lib/ai';
 import { trackActivity, getActiveUserId } from '../lib/activity';
 import { logAIFeedback } from '../lib/data';
@@ -9,9 +9,13 @@ interface AppStore extends AppState {
   isBreakingDown: boolean;
   breakdownText: string;
   sessionSteps: TaskStep[];
+  projects: Project[];
+  milestones: RoadmapNode[];
 
   setScreen: (screen: Screen) => void;
   setGoalInput: (input: string) => void;
+  setProjects: (projects: Project[]) => void;
+  setMilestones: (milestones: RoadmapNode[]) => void;
   breakdownGoal: (goal: string) => Promise<void>;
   startStep: (index: number) => void;
   startFocusSession: () => void;
@@ -89,9 +93,13 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   sessionSteps: [],
   goals: [],
   distractionLog: [],
+  projects: [],
+  milestones: [],
 
   setScreen: (screen) => set({ screen }),
   setGoalInput: (input) => set({ goalInput: input }),
+  setProjects: (projects) => set({ projects }),
+  setMilestones: (milestones) => set({ milestones }),
 
   setMood: (mood: MoodLevel, energy: EnergyLevel) => {
     const { profile, currentSession } = get();
@@ -645,5 +653,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     sessionSteps: state.sessionSteps,
     profile: state.profile,
     goals: state.goals,
+    projects: state.projects,
+    milestones: state.milestones,
   }),
 }));
