@@ -33,7 +33,6 @@ export function DashboardScreen() {
   const profile = useAppStore((s) => s.profile);
   const preferredTaskDuration = profile?.preferredTaskDuration;
   const todayCheckIn = usePersonalizationStore((s) => s.todayCheckIn);
-  const setTodayCheckIn = usePersonalizationStore((s) => s.setTodayCheckIn);
   const clearTodayCheckIn = usePersonalizationStore((s) => s.clearTodayCheckIn);
   const signOut = useAuth((s) => s.signOut);
   const hasConsented = useConsentStore((s) => s.hasConsented);

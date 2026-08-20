@@ -129,7 +129,7 @@ export function TreeBreakdown({ goalTitle, steps }: TreeBreakdownProps) {
     let timer: ReturnType<typeof setTimeout>;
     let raf: number;
     function tick() {
-      if (idx >= steps.length) return;
+      if (idx > steps.length) return;
       setAnimIndex(idx);
       timer = setTimeout(() => {
         idx++;
@@ -347,7 +347,7 @@ function RoadmapStep({
     let t: ReturnType<typeof setTimeout>;
     let r: number;
     function tick() {
-      if (ci >= kids.length) return;
+      if (ci > kids.length) return;
       setChildAnim(ci);
       t = setTimeout(() => { ci++; r = requestAnimationFrame(tick); }, stepDelay);
     }

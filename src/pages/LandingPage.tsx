@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useAuth } from '../contexts/AuthContext';
-import { Sparkles, Timer, Heart, Shield, ArrowRight, ChevronRight, Zap, Moon, Brain, Leaf } from 'lucide-react';
+import { Sparkles, Timer, Heart, Shield, ArrowRight, Zap, Moon, Brain, Leaf } from 'lucide-react';
 
 const features = [
   {

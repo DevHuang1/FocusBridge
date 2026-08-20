@@ -37,7 +37,7 @@ export function PlanningScreen() {
           { id: `mn-${Date.now()}-1`, projectId: newProject.id, title: 'Second milestone', position: 1, status: 'pending', createdAt: new Date().toISOString() },
         );
       }
-      setProjects((prev) => [...prev, newProject]);
+      setProjects([...projects, newProject]);
       setMilestones(newMilestones);
       setSelectedProject(newProject);
       trackActivity('roadmap_created', { properties: { milestoneCount: newMilestones.length } });
@@ -50,7 +50,7 @@ export function PlanningScreen() {
   };
 
   const updateMilestoneStatus = (id: string, status: MilestoneStatus) => {
-    setMilestones((prev) => prev.map((m) => (m.id === id ? { ...m, status } : m)));
+    setMilestones(milestones.map((m) => (m.id === id ? { ...m, status } : m)));
   };
 
   if (!selectedProject) {

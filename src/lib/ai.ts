@@ -499,7 +499,6 @@ export const aiService = {
   generateSessionSummary,
   generateMilestones,
   generateTasksFromMilestone,
-  generateStepBreakdown,
   generateSoftStartAlternatives,
   classifyTask,
 };
