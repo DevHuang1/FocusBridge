@@ -27,17 +27,12 @@ function AppShell() {
   const screen = useAppStore((s) => s.screen);
   const user = useAuth((s) => s.user);
   const loading = useAuth((s) => s.loading);
-  const applyThemeToDOM = usePersonalizationStore((s) => s.applyThemeToDOM);
   const hasConsented = useConsentStore((s) => s.hasConsented);
   const consentDismissed = useConsentStore((s) => s.consentDismissed);
   const pendingCheckIn = usePersonalizationStore((s) => s.pendingCheckIn);
   const todayCheckIn = usePersonalizationStore((s) => s.todayCheckIn);
   const setPendingCheckIn = usePersonalizationStore((s) => s.setPendingCheckIn);
   const setTodayCheckIn = usePersonalizationStore((s) => s.setTodayCheckIn);
-
-  useEffect(() => {
-    applyThemeToDOM();
-  }, []);
 
   useEffect(() => {
     if (user) void ensureConsentSynced();
@@ -94,6 +89,12 @@ function AppShell() {
 }
 
 function App() {
+  const applyThemeToDOM = usePersonalizationStore((s) => s.applyThemeToDOM);
+
+  useEffect(() => {
+    applyThemeToDOM();
+  }, []);
+
   return (
     <ErrorBoundary>
       <AuthProvider>
