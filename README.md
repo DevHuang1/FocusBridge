@@ -196,3 +196,7 @@ Every LLM call goes through a staged pipeline (`src/lib/contextEngine.ts`) that 
 6. **Calm continuity** — Personalization makes it more comfortable over time
 7. **Accessibility** — Keyboard nav, contrast, reduced motion, screen readers
 8. **No medical claims** — Self-reported context, not diagnosis
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
