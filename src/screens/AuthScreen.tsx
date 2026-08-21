@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { Link } from 'react-router-dom';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 
@@ -58,7 +59,9 @@ export function AuthScreen() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <Card className="max-w-md w-full">
         <div className="text-center mb-8">
+          <Link to="/" className="block">
           <img src="/logo/logo-96.png" alt="Focus Bridge" className="w-16 h-16 mx-auto mb-4" />
+        </Link>
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-4" style={{ backgroundColor: 'var(--color-theme-surface)', color: 'var(--color-theme-primary)' }}>
             FocusBridge
           </div>
