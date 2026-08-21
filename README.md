@@ -4,7 +4,12 @@ A calm, personalized, ADHD-friendly productivity workspace. FocusBridge helps yo
 
 ## Tech Stack
 
-![React](https://raw.githubusercontent.com/github/explore/main/topics/react/react-24.png&nbsp;width=24&height=24) ![TypeScript](https://raw.githubusercontent.com/github/explore/main/topics/typescript/typescript-24.png&nbsp;width=24&height=24) ![Vite](https://raw.githubusercontent.com/github/explore/main/topics/vite/vite-24.png&nbsp;width=24&height=24) ![Tailwind CSS](https://raw.githubusercontent.com/github/explore/main/topics/tailwindcss/tailwindcss-24.png&nbsp;width=24&height=24) ![Firebase](https://raw.githubusercontent.com/github/explore/main/topics/firebase/firebase-24.png&nbsp;width=24&height=24) ![OpenRouter](https://raw.githubusercontent.com/github/explore/main/topics/openrouter/openrouter-24.png&nbsp;width=24&height=24)
+<img src="https://raw.githubusercontent.com/DevHuang1/FocusBridge/main/public/logo/logo-64.png" alt="React" width="24" height="24" style="vertical-align:middle; margin-right:4px;"> React &
+<img src="https://raw.githubusercontent.com/DevHuang1/FocusBridge/main/public/logo/logo-64.png" alt="TypeScript" width="24" height="24" style="vertical-align:middle; margin-right:4px;"> TypeScript &
+<img src="https://raw.githubusercontent.com/DevHuang1/FocusBridge/main/public/logo/logo-64.png" alt="Vite" width="24" height="24" style="vertical-align:middle; margin-right:4px;"> Vite &
+<img src="https://raw.githubusercontent.com/DevHuang1/FocusBridge/main/public/logo/logo-64.png" alt="Tailwind CSS" width="24" height="24" style="vertical-align:middle; margin-right:4px;"> Tailwind CSS &
+<img src="https://raw.githubusercontent.com/DevHuang1/FocusBridge/main/public/logo/logo-64.png" alt="Firebase" width="24" height="24" style="vertical-align:middle; margin-right:4px;"> Firebase &
+<img src="https://raw.githubusercontent.com/DevHuang1/FocusBridge/main/public/logo/logo-64.png" alt="OpenRouter" width="24" height="24" style="vertical-align:middle; margin-right:4px;"> OpenRouter
 
 ---
 
