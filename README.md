@@ -2,6 +2,12 @@
 
 A calm, personalized, ADHD-friendly productivity workspace. FocusBridge helps you reduce overwhelm, identify one practical next step, and reflect on progress without shame or excessive cognitive load.
 
+## Tech Stack
+
+![React](https://raw.githubusercontent.com/github/explore/main/topics/react/react-24.png&nbsp;width=24&height=24) ![TypeScript](https://raw.githubusercontent.com/github/explore/main/topics/typescript/typescript-24.png&nbsp;width=24&height=24) ![Vite](https://raw.githubusercontent.com/github/explore/main/topics/vite/vite-24.png&nbsp;width=24&height=24) ![Tailwind CSS](https://raw.githubusercontent.com/github/explore/main/topics/tailwindcss/tailwindcss-24.png&nbsp;width=24&height=24) ![Firebase](https://raw.githubusercontent.com/github/explore/main/topics/firebase/firebase-24.png&nbsp;width=24&height=24) ![OpenRouter](https://raw.githubusercontent.com/github/explore/main/topics/openrouter/openrouter-24.png&nbsp;width=24&height=24)
+
+---
+
 ## Features
 
 - **Daily Check-In**: Warm, optional morning prompt to set up your day
