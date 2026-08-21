@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useAuth } from '../contexts/AuthContext';
-import { Sparkles, Timer, Heart, Shield, ArrowRight, Zap, Moon, Brain, Leaf } from 'lucide-react';
+import { Sparkles, Timer, Heart, Shield, ArrowRight, Zap, Moon, Brain } from 'lucide-react';
 
 const features = [
   {
@@ -79,10 +79,6 @@ export function LandingPage() {
       <section className="pt-32 pb-20 px-5">
         <div className="max-w-3xl mx-auto text-center">
           <img src="/focus_bridge.png" alt="FocusBridge" className="w-20 h-20 object-contain mx-auto mb-8 animate-fade-in" />
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-sage-50 border border-sage-100 text-sm text-text-secondary mb-8 animate-fade-in">
-            <Leaf size={14} className="text-sage-400" />
-            Built for the Pixel Forge AI Hackathon
-          </div>
           <h1 className="font-serif text-4xl md:text-6xl lg:text-7xl text-text-primary mb-6 leading-tight animate-fade-in-up">
             Overwhelm meets its<br />
             <span style={{ color: 'var(--color-theme-primary)' }}>gentle opposite.</span>
